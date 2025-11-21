@@ -1,0 +1,166 @@
+body
+{
+	width: 100vw;
+	height: 100vh;
+	padding: 0;
+	margin: 0;
+	text-decoration: none;
+    display: flex;
+	flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.canvas
+{
+	border: 10px solid #4a4e69;
+	border-radius: 10px;
+}
+
+.horizontal-align
+{
+	display: flex;
+	flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.vertical-align
+{
+	display: flex;
+	flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.panel
+{
+	margin-left: 10px;
+	width: 400px;
+	height: 720px;
+	border: 10px solid #4a4e69;
+	border-radius: 10px;
+	background-color: #022639;
+}
+
+.param-panel
+{
+	width: 270px;
+	margin: 5px 0 5px 0;
+}
+
+.mg-top-bottom
+{
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
+
+.slider
+{
+	font-weight: bold;
+	font-size: large;
+	color: #ffffff;
+}
+
+.slider .slide
+{
+	width: 120px;
+	padding-top: 10px;
+}
+
+.checkText
+{
+	width: 150px;
+	height: 20px;
+	font-weight: bold;
+	font-size: large;
+	color: #ffffff;
+}
+
+.checkRadio
+{
+	width: 20px;
+	height: 20px;
+	margin-right: 22px;
+}
+
+.textbox
+{
+	margin-left: 15px;
+	width: 55px;
+	height: 55px;
+	background: #0077b6;
+	border: 5px solid #00b4d8;
+	border-radius: 10px;
+}
+
+.textbox2
+{
+	margin-left: 15px;
+	width: 55px;
+	height: 40px;
+	background: #0077b6;
+	border: 5px solid #00b4d8;
+	border-radius: 10px;
+}
+
+.textbox p
+{
+	position: relative;
+	color: #ffffff;
+	text-align: center;
+	font-weight: bold;
+	font-size: 25px;
+	line-height: 0.25;
+}
+
+.textbox2 p
+{
+	position: relative;
+	color: #ffffff;
+	text-align: center;
+	font-weight: bold;
+	font-size: 20px;
+	line-height: 0.1;
+}
+
+.anim-btn
+{
+	margin: 15px 0px 5px 0px;
+	width: 270px;
+	height: 70px;
+	background: #34a0a4;
+	border: 5px solid #99d98c;
+	border-radius: 10px;
+	color: #ffffff;
+	text-align: center;
+	font-weight: bold;
+	font-size: 24px;
+	outline : none;
+}
+
+.anim-btn:hover
+{
+	animation: bounce 1s;
+}
+
+.anim-btn:active
+{
+  background-color 	: #21ff94;
+  box-shadow 		: 0 2px #666666;
+  transform 		: translateY(2px);
+}
+
+.anim-btn:disabled
+{
+    animation: none;
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+@keyframes bounce 
+{
+	0%, 20%, 60%, 100%	{transform: translateY(0);}
+	40% 				{transform: translateY(-10px);}
+	80% 				{transform: translateY(-5px);}
+}

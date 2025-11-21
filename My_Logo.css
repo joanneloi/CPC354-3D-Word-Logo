@@ -1,0 +1,17 @@
+/* My_Logo.css */
+
+body {
+  margin: 0;
+  background-color: #222; /* optional: dark background for contrast */
+}
+
+#gl-canvas {
+  display: block;
+  margin: 30px auto;
+  border: 6px solid #00ffff; /* bold cyan border */
+  border-radius: 15px;
+  box-shadow: 0 0 25px #00ffff; /* glowing effect */
+  background-color: black; /* ensures WebGL stands out */
+  width: 80vw;  /* 80% of window width */
+  height: 80vh; /* 80% of window height */
+}
