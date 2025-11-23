@@ -15,8 +15,82 @@
     <script src="My_Logo.js"></script>
 </head>
 <body>
+    <!-- Main Content Container -->
+    <div id="main-container">
     <!-- size of the canvas-->
     <canvas id="gl-canvas" width="500" height="500"></canvas>
+    
+    <!-- Control Panel -->
+    <div id="control-panel">
+        <h2>3D Logo Controls</h2>
+        
+        <!-- Extrusion Depth Control -->
+        <div class="control-group">
+            <label>Extrusion Depth:</label>
+            <div class="speed-button-group">
+                <button id="extrusion-decrease-btn" class="speed-btn">-</button>
+                <span id="extrusion-value" class="speed-display">0.10</span>
+                <button id="extrusion-increase-btn" class="speed-btn">+</button>
+            </div>
+        </div>
+        
+        <!-- Animation Speed Control -->
+        <div class="control-group">
+            <label>Animation Speed:</label>
+            <div class="speed-button-group">
+                <button id="speed-decrease-btn" class="speed-btn">-</button>
+                <span id="speed-value" class="speed-display">1.0</span>
+                <button id="speed-increase-btn" class="speed-btn">+</button>
+            </div>
+        </div>
+        
+        <!-- Color Controls Group -->
+        <div class="control-group color-controls-group">
+            <label class="color-group-label">Color Controls</label>
+            
+            <div class="color-picker-row">
+                <div class="color-picker-item">
+                    <label for="color-picker">Primary</label>
+                    <input type="color" id="color-picker" value="#ff0000">
+                </div>
+                
+                <div class="color-picker-item">
+                    <label for="color-picker-2">Secondary</label>
+                    <input type="color" id="color-picker-2" value="#00ff00">
+                </div>
+            </div>
+            
+            <div class="color-preset-row">
+                <label for="color-preset">Preset:</label>
+                <select id="color-preset">
+                    <option value="custom">Custom</option>
+                    <option value="red-blue">Red & Blue</option>
+                    <option value="green-yellow">Green & Yellow</option>
+                    <option value="purple-pink">Purple & Pink</option>
+                    <option value="cyan-orange">Cyan & Orange</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Buttons -->
+        <div class="button-group">
+            <button id="play-pause-btn" class="play-pause-btn">Stop</button>
+            <button id="reset-btn">Reset</button>
+        </div>
+        
+        <!-- Info Display -->
+        <div class="info-group">
+            <p>Press <kbd>Space</kbd> to Start/Stop</p>
+            <p>Press <kbd>R</kbd> to Reset</p>
+        </div>
+    </div>
+    </div>
+    <!-- End Main Container -->
+
+    <!-- Footer -->
+    <footer id="footer">
+        <p>Prepared by : Yi Jie, Joanne, Shu Ying, Yee Xuan</p>
+    </footer>
 
     <script id="vertex-shader" type="x-shader/x-vertex">
         #version 300 es
@@ -46,6 +120,191 @@
 
     </script>
 
+    <!-- Inline script for UI controls only -->
+    <script>
+        // Wait for the original init to complete
+        var originalInit = window.onload;
+        window.onload = function() {
+            if(originalInit) originalInit();
+            
+            // Setup UI controls after original init
+            setTimeout(setupUIControls, 100);
+        };
+
+        function setupUIControls() {
+            // Get UI elements
+            var extrusionDecreaseBtn = document.getElementById("extrusion-decrease-btn");
+            var extrusionIncreaseBtn = document.getElementById("extrusion-increase-btn");
+            var speedDecreaseBtn = document.getElementById("speed-decrease-btn");
+            var speedIncreaseBtn = document.getElementById("speed-increase-btn");
+            var colorPicker1 = document.getElementById("color-picker");
+            var colorPicker2 = document.getElementById("color-picker-2");
+            var presetSelect = document.getElementById("color-preset");
+            var playPauseBtn = document.getElementById("play-pause-btn");
+            var resetBtn = document.getElementById("reset-btn");
+            var extrusionValueDisplay = document.getElementById("extrusion-value");
+            var speedValueDisplay = document.getElementById("speed-value");
+            
+            // Function to update extrusion depth display and enforce limits
+            function updateExtrusionDepth(newDepth) {
+                extrusionDepth = Math.max(0.0, Math.min(0.5, newDepth));
+                extrusionValueDisplay.textContent = extrusionDepth.toFixed(2);
+                makeL();
+            }
+            
+            // Function to update speed display and enforce limits
+            function updateSpeed(newSpeed) {
+                animationSpeed = Math.max(0.1, Math.min(5.0, newSpeed));
+                speedValueDisplay.textContent = animationSpeed.toFixed(1);
+            }
+
+            // Helper functions
+            function hexToRgb(hex) {
+                var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? [
+                    parseInt(result[1], 16) / 255.0,
+                    parseInt(result[2], 16) / 255.0,
+                    parseInt(result[3], 16) / 255.0,
+                    1.0
+                ] : [1.0, 0.0, 0.0, 1.0];
+            }
+
+            function rgbToHex(rgb) {
+                var r = Math.round(rgb[0] * 255).toString(16).padStart(2, '0');
+                var g = Math.round(rgb[1] * 255).toString(16).padStart(2, '0');
+                var b = Math.round(rgb[2] * 255).toString(16).padStart(2, '0');
+                return '#' + r + g + b;
+            }
+
+            function applyColorPreset(preset) {
+                switch(preset) {
+                    case 'red-blue':
+                        primaryColor = [1.0, 0.0, 0.0, 1.0];
+                        secondaryColor = [0.0, 0.0, 1.0, 1.0];
+                        break;
+                    case 'green-yellow':
+                        primaryColor = [0.0, 1.0, 0.0, 1.0];
+                        secondaryColor = [1.0, 1.0, 0.0, 1.0];
+                        break;
+                    case 'purple-pink':
+                        primaryColor = [0.5, 0.0, 0.5, 1.0];
+                        secondaryColor = [1.0, 0.4, 0.8, 1.0];
+                        break;
+                    case 'cyan-orange':
+                        primaryColor = [0.0, 1.0, 1.0, 1.0];
+                        secondaryColor = [1.0, 0.5, 0.0, 1.0];
+                        break;
+                }
+                colorPicker1.value = rgbToHex(primaryColor);
+                colorPicker2.value = rgbToHex(secondaryColor);
+                makeL();
+            }
+
+            // Event listeners
+            // Extrusion depth control buttons
+            extrusionDecreaseBtn.addEventListener('click', function() {
+                updateExtrusionDepth(extrusionDepth - 0.01);
+            });
+            
+            extrusionIncreaseBtn.addEventListener('click', function() {
+                updateExtrusionDepth(extrusionDepth + 0.01);
+            });
+
+            // Speed control buttons
+            speedDecreaseBtn.addEventListener('click', function() {
+                updateSpeed(animationSpeed - 0.1);
+            });
+            
+            speedIncreaseBtn.addEventListener('click', function() {
+                updateSpeed(animationSpeed + 0.1);
+            });
+
+            colorPicker1.addEventListener('input', function(e) {
+                primaryColor = hexToRgb(e.target.value);
+                presetSelect.value = 'custom';
+                makeL();
+            });
+
+            colorPicker2.addEventListener('input', function(e) {
+                secondaryColor = hexToRgb(e.target.value);
+                presetSelect.value = 'custom';
+                makeL();
+            });
+
+            presetSelect.addEventListener('change', function(e) {
+                if(e.target.value !== 'custom') {
+                    applyColorPreset(e.target.value);
+                }
+            });
+
+            playPauseBtn.addEventListener('click', function() {
+                isAnimating = !isAnimating;
+                updatePlayPauseButton();
+            });
+            
+            function updatePlayPauseButton() {
+                if(isAnimating) {
+                    // Stop state (red)
+                    playPauseBtn.classList.remove('play-state');
+                    playPauseBtn.classList.add('pause-state');
+                    playPauseBtn.textContent = 'Stop';
+                } else {
+                    // Start state (green)
+                    playPauseBtn.classList.remove('pause-state');
+                    playPauseBtn.classList.add('play-state');
+                    playPauseBtn.textContent = 'Start';
+                }
+            }
+            
+            // Initialize button state
+            updatePlayPauseButton();
+
+            resetBtn.addEventListener('click', function() {
+                animationAngle = 0;
+                animationSpeed = 1.0;
+                extrusionDepth = 0.1;
+                primaryColor = [1.0, 0.0, 0.0, 1.0];
+                secondaryColor = [0.0, 1.0, 0.0, 1.0];
+                
+                updateExtrusionDepth(extrusionDepth);
+                updateSpeed(animationSpeed);
+                colorPicker1.value = '#ff0000';
+                colorPicker2.value = '#00ff00';
+                presetSelect.value = 'custom';
+                
+                makeL();
+            });
+
+            // Keyboard events
+            window.addEventListener('keydown', function(e) {
+                switch(e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        isAnimating = !isAnimating;
+                        updatePlayPauseButton();
+                        break;
+                    case 'KeyR':
+                        resetBtn.click();
+                        break;
+                }
+            });
+
+            // Window resize event
+            window.addEventListener('resize', function() {
+                var maxWidth = Math.min(800, window.innerWidth - 400);
+                var maxHeight = Math.min(800, window.innerHeight - 40);
+                canvas.width = maxWidth;
+                canvas.height = maxHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+                projectionMatrix = perspective(45.0, canvas.width/canvas.height, 0.1, 100.0);
+            });
+            
+            // Rebuild with 3D extrusion
+            makeL();
+            // Start animation loop
+            render();
+        }
+    </script>
 
 </body>
 </html>
