@@ -51,6 +51,21 @@
                     <span id="speed_value" class="slider_value">1.0</span>
                 </div>
             </div>
+            <div class="control_group">
+                <label>Manual Controls (Select "Manual" below to use)</label>
+                <div class="slider_container">
+                    <label>Rot X:</label>
+                    <input type="range" id="rot_x" min="0" max="360" value="0">
+                </div>
+                <div class="slider_container">
+                    <label>Rot Y:</label>
+                    <input type="range" id="rot_y" min="0" max="360" value="0">
+                </div>
+                <div class="slider_container">
+                    <label>Rot Z:</label>
+                    <input type="range" id="rot_z" min="0" max="360" value="0">
+                </div>
+            </div>
         </div>
 
         <!-- Rotation Control Group -->
@@ -59,6 +74,7 @@
             <div class="inline_control_row">
                 <select id="rotation_sequence_select">
                     <option value="full_sequence">Full TV Ident</option>
+                    <option value="manual_360">Manual 360 Rotation</option> </select>
                 </select>
                 <button id="run_rotation_button" class="rotation_button">Run</button>
             </div>
