@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Draw a 'C' using WebGL (TRIANGLE_FAN)</title>
+  <style>
+    body { display:flex; gap:20px; align-items:flex-start; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; background:#fbf7f2; color:#111; padding:20px; }
+    canvas { background: #fbf7f2; border:1px solid #ddd; width:600px; height:600px; }
+    .controls { max-width:360px }
+    label{display:block;margin:8px 0 4px;font-size:14px}
+    input[type=range]{width:100%}
+    img{max-width:320px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
+    .meta{font-size:13px;color:#444;margin-top:8px}
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas" width="600" height="600"></canvas>
+  <div class="controls">
+    <h3>C using TRIANGLE_FAN</h3>
+    <p>This demo draws a thick ring-shaped 'C' by drawing two triangle fans: an outer arc (black) and an inner arc in the background color to cut out the hole — producing a ring — and the arc leaves a gap so the shape looks like a letter C.</p>
+
+    <label>Outer radius: <span id="or">0.8</span></label>
+    <input id="outerR" type="range" min="0.2" max="1.1" step="0.01" value="0.8">
+
+    <label>Thickness: <span id="th">0.25</span></label>
+    <input id="thickness" type="range" min="0.05" max="0.6" step="0.01" value="0.25">
+
+    <label>Gap angle (degrees): <span id="gapA">60</span></label>
+    <input id="gapAngle" type="range" min="10" max="150" step="1" value="60">
+
+    <label>Smoothness (segments): <span id="seg">80</span></label>
+    <input id="segments" type="range" min="8" max="200" step="1" value="80">
+
+    <div class="meta">
+      Example background image (uploaded):
+      <div style="margin-top:8px"><img src="/mnt/data/A_vector_graphic_logo_features_a_bold,_capital_let.png" alt="uploaded image"></div>
+      <div style="margin-top:6px;color:#666;font-size:12px">Local file path used as image src per request.</div>
+    </div>
+  </div>
+
+<script>
+// Vertex shader (position only)
+const vsSource = `#version 300 es
+in vec2 aPosition;
+void main() {
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+`;
+
+// Fragment shader (uniform color)
+const fsSource = `#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 outColor;
+void main(){ outColor = uColor; }
+`;
+
+function createShader(gl, type, source){
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
+    throw new Error('Shader compile error: ' + gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+function createProgram(gl, vs, fs){
+  const program = gl.createProgram();
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if(!gl.getProgramParameter(program, gl.LINK_STATUS)){
+    throw new Error('Program link error: ' + gl.getProgramInfoLog(program));
+  }
+  return program;
+}
+
+// Convert polar coordinates (r, angle) to clip space (x,y)
+function polarToClip(r, angle){
+  // angle in radians
+  // clip space expects -1..1 coordinates; the canvas is square so we can treat radius directly
+  return [r * Math.cos(angle), r * Math.sin(angle)];
+}
+
+// Build a triangle fan vertices for an arc sector centered at origin
+function buildArcFanVertices(outerR, startA, endA, segments){
+  const vertices = [];
+  // center
+  vertices.push(0,0);
+  for(let i=0;i<=segments;i++){
+    const t = i / segments;
+    const a = startA + (endA - startA) * t;
+    const p = polarToClip(outerR, a);
+    vertices.push(p[0], p[1]);
+  }
+  return new Float32Array(vertices);
+}
+
+// Build inner fan (to cut hole) - draws filled sector in background color
+function buildInnerFanVertices(innerR, startA, endA, segments){
+  const vertices = [];
+  vertices.push(0,0);
+  for(let i=0;i<=segments;i++){
+    const t = i / segments;
+    const a = startA + (endA - startA) * t;
+    const p = polarToClip(innerR, a);
+    vertices.push(p[0], p[1]);
+  }
+  return new Float32Array(vertices);
+}
+
+window.onload = ()=>{
+  const canvas = document.getElementById('glcanvas');
+  const gl = canvas.getContext('webgl2');
+  if(!gl){ alert('WebGL2 is required for this demo.'); return; }
+
+  // compile shaders
+  const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  const program = createProgram(gl, vs, fs);
+
+  const aPosition = gl.getAttribLocation(program, 'aPosition');
+  const uColor = gl.getUniformLocation(program, 'uColor');
+
+  // buffers
+  const outerBuffer = gl.createBuffer();
+  const innerBuffer = gl.createBuffer();
+
+  // UI
+  const outerR_in = document.getElementById('outerR');
+  const thickness_in = document.getElementById('thickness');
+  const gap_in = document.getElementById('gapAngle');
+  const seg_in = document.getElementById('segments');
+  const or_span = document.getElementById('or');
+  const th_span = document.getElementById('th');
+  const gap_span = document.getElementById('gapA');
+  const seg_span = document.getElementById('seg');
+
+  function render(){
+    // read UI
+    const outerR = parseFloat(outerR_in.value);
+    const thickness = parseFloat(thickness_in.value);
+    const gapDeg = parseFloat(gap_in.value);
+    const segments = parseInt(seg_in.value, 10);
+
+    or_span.textContent = outerR.toFixed(2);
+    th_span.textContent = thickness.toFixed(2);
+    gap_span.textContent = gapDeg.toFixed(0);
+    seg_span.textContent = segments;
+
+    // compute angles: we'll draw the arc from thetaStart to thetaEnd, leaving a gap centered on the right side
+    const gapRad = gapDeg * Math.PI / 180;
+    // center the gap at 0 radians (to the right), so the arc goes from gap/2 to 2PI - gap/2
+    const startA = gapRad / 2;
+    const endA = 2 * Math.PI - gapRad / 2;
+
+    // canvas is square. We use radius values in clip-space units where 1.0 fits the viewport.
+    // build outer fan
+    const outerVerts = buildArcFanVertices(outerR, startA, endA, segments);
+    gl.bindBuffer(gl.ARRAY_BUFFER, outerBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, outerVerts, gl.STATIC_DRAW);
+
+    // inner fan (to cut a hole) - draw this with background color
+    const innerR = Math.max(0.0, outerR - thickness);
+    const innerVerts = buildInnerFanVertices(innerR, startA, endA, segments);
+    gl.bindBuffer(gl.ARRAY_BUFFER, innerBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, innerVerts, gl.STATIC_DRAW);
+
+    // viewport and clear
+    gl.viewport(0,0,gl.canvas.width, gl.canvas.height);
+    // page background color is slightly off-white (match CSS)
+    gl.clearColor(0.984,0.969,0.949,1.0); // #fbf7f2
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // use program
+    gl.useProgram(program);
+
+    // draw outer sector (the main black arc)
+    gl.bindBuffer(gl.ARRAY_BUFFER, outerBuffer);
+    gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform4f(uColor, 0.06, 0.06, 0.06, 1.0); // near-black
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, outerVerts.length / 2);
+
+    // draw inner sector in background color to subtract center
+    gl.bindBuffer(gl.ARRAY_BUFFER, innerBuffer);
+    gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+    // same color as page background
+    gl.uniform4f(uColor, 0.984,0.969,0.949,1.0);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, innerVerts.length / 2);
+
+    // optional: add a rounded end by drawing small circles at arc ends (simple fan)
+    // left end (angle = pi), right end (angle = 0) — we won't draw them because the gap is already open.
+  }
+
+  function scheduleRender(){ render(); }
+
+  // Attach events
+  [outerR_in, thickness_in, gap_in, seg_in].forEach(el=> el.addEventListener('input', scheduleRender));
+
+  // initial draw
+  render();
+};
+</script>
+</body>
+</html>
