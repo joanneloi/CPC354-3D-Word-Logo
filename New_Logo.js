@@ -61,7 +61,7 @@ function makeLogo() {
     for (let i = 0; i <= segmentsR; i++) {
         let theta = i * 2 * Math.PI / segmentsR; 
         let cosT = Math.cos(theta);
-        let sinT = Math.sin(theta);
+        let sinT = Math.sin(theta); 
 
         for (let j = 0; j <= segmentsT; j++) {
             let phi = j * 2 * Math.PI / segmentsT;
