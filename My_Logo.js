@@ -242,9 +242,13 @@ function render(now) {
   var deltaSeconds = lastFrameTime ? (now - lastFrameTime) / 1000.0 : 0;
   lastFrameTime = now;
 
+  // --- PART 1: STOP THE AUTOMATIC UPDATE ---
   if (isSequenceRunning) {
     updateSequence(deltaSeconds);
-  } else if (isAnimating) {
+  } else if (isAnimating && !isManualRotation) {
+    // ^^^ THIS IS THE KEY FIX ^^^
+    // We added "&& !isManualRotation".
+    // This means: Only do the automatic math if we are NOT in manual mode.
     animationAngle += 0.5 * animationSpeed;
     if (animationAngle >= 360) {
       animationAngle -= 360;
@@ -259,22 +263,22 @@ function render(now) {
     vec3(0.0, 1.0, 0.0)
   );
 
-  var modelMatrix;
+  // --- PART 2: CHOOSE ONLY ONE ROTATION MODE ---
+  var modelMatrix = mat4(); // Start fresh
+
   if (isSequenceRunning) {
+    // Mode 1: TV Sequence
     modelMatrix = buildModelMatrix(currentSequenceTransform);
+  } else if (isManualRotation) {
+    // Mode 2: Manual Control (The fix for your "roty" issue)
+    // We use 'manualY' here directly. We do NOT add 'animationAngle'.
+    modelMatrix = mult(modelMatrix, rotate(manualX, 1, 0, 0));
+    modelMatrix = mult(modelMatrix, rotate(manualY, 0, 1, 0)); // Controlled by Rot Y slider
+    modelMatrix = mult(modelMatrix, rotate(manualZ, 0, 0, 1));
   } else {
+    // Mode 3: Automatic Idle Spin
+    // This only runs if Manual Mode is FALSE.
     modelMatrix = rotate(animationAngle, 0, 1, 0);
-  }
-
-  modelViewMatrix = mult(modelViewMatrix, modelMatrix);
-
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  if (isManualRotation) {
-    // Order matters: usually X, then Y, then Z
-    modelMatrix = mult(modelMatrix, rotate(manualX, 1, 0, 0)); // Rotate X
-    modelMatrix = mult(modelMatrix, rotate(manualY, 0, 1, 0)); // Rotate Y
-    modelMatrix = mult(modelMatrix, rotate(manualZ, 0, 0, 1)); // Rotate Z
   }
 
   modelViewMatrix = mult(modelViewMatrix, modelMatrix);
