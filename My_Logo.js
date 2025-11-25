@@ -12,6 +12,7 @@ var animationAngle = 0;
 var isAnimating = false; //default pause
 var animationSpeed = 1.0;
 var extrusionDepth = 0.1;
+var appliedMode = "none"; // "none", "manual", "sequence, left_rotate"
 var isManualRotation = false; // The flag to switch modes
 var manualX = 0;
 var manualY = 0;
@@ -22,57 +23,121 @@ var customText = "L"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
-var sequenceKeyframes = [
+
+// 1. The New Assignment Sequence
+var assignmentKeyframes = [
+  {
+    // Step 1: Start Center (Hold briefly)
+    name: "start",
+    duration: 0.5,
+    start: createTransform(0, [0, 0, 0], 1.0),
+    end: createTransform(0, [0, 0, 0], 1.0),
+  },
+  {
+    // Step 2: Rotate Right 180 (0 to -180 is Clockwise/Right)
+    name: "right_180",
+    duration: 1.5,
+    start: createTransform(0, [0, 0, 0], 1.0),
+    end: createTransform(-180, [0, 0, 0], 1.0),
+  },
+  {
+    // Step 3: Rotate Back to Original
+    name: "back_from_right",
+    duration: 1.5,
+    start: createTransform(-180, [0, 0, 0], 1.0),
+    end: createTransform(0, [0, 0, 0], 1.0),
+  },
+  {
+    // Step 4: Rotate Left 180 (0 to 180 is Counter-Clockwise/Left)
+    name: "left_180",
+    duration: 1.5,
+    start: createTransform(0, [0, 0, 0], 1.0),
+    end: createTransform(180, [0, 0, 0], 1.0),
+  },
+  {
+    // Step 5: Rotate Back to Original
+    name: "back_from_left",
+    duration: 1.5,
+    start: createTransform(180, [0, 0, 0], 1.0),
+    end: createTransform(0, [0, 0, 0], 1.0),
+  },
+  {
+    // Step 6: Gradually Enlarge (Scale 1.0 -> 1.3)
+    name: "enlarge",
+    duration: 2.0,
+    start: createTransform(0, [0, 0, 0], 1.0),
+    end: createTransform(0, [0, 0, 0], 1.3),
+  },
+  {
+    // Step 7: Move About (Looping)
+    name: "hover_loop",
+    duration: 3.0, // Length of one bob/wobble cycle
+    loop: true, // Custom flag to make this step repeat forever
+    custom: true,
+    compute: function (t) {
+      // Gentle floating up/down and slight wobble rotation
+      var y = 0.1 * Math.sin(t * Math.PI * 2);
+      var rot = 10 * Math.sin(t * Math.PI * 2);
+      return createTransform(rot, [0, y, 0], 1.3);
+    },
+  },
+];
+
+// TV Ident Sequence
+var tvIdentKeyframes = [
   {
     name: "center",
     duration: 0.6,
-    start: createTransform(0, [0.0, 0.0, 0.0], 1.0),
-    end: createTransform(0, [0.0, 0.0, 0.0], 1.0),
+    start: createTransform(0, [0, 0, 0], 1),
+    end: createTransform(0, [0, 0, 0], 1),
   },
   {
     name: "rotate_right",
     duration: 1.0,
-    start: createTransform(0, [0.0, 0.0, 0.0], 1.0),
-    end: createTransform(180, [0.25, 0.0, 0.0], 1.0),
+    start: createTransform(0, [0, 0, 0], 1),
+    end: createTransform(180, [0.25, 0, 0], 1),
   },
   {
     name: "back_track_one",
     duration: 0.8,
-    start: createTransform(180, [0.25, 0.0, 0.0], 1.0),
-    end: createTransform(180, [0.25, 0.0, -0.35], 1.0),
+    start: createTransform(180, [0.25, 0, 0], 1),
+    end: createTransform(180, [0.25, 0, -0.35], 1),
   },
   {
     name: "rotate_left",
     duration: 1.0,
-    start: createTransform(180, [0.25, 0.0, -0.35], 1.0),
-    end: createTransform(360, [-0.25, 0.0, -0.35], 1.0),
+    start: createTransform(180, [0.25, 0, -0.35], 1),
+    end: createTransform(360, [-0.25, 0, -0.35], 1),
   },
   {
     name: "back_track_two",
     duration: 0.8,
-    start: createTransform(360, [-0.25, 0.0, -0.35], 1.0),
-    end: createTransform(360, [-0.25, 0.0, 0.0], 1.0),
+    start: createTransform(360, [-0.25, 0, -0.35], 1),
+    end: createTransform(360, [-0.25, 0, 0], 1),
   },
   {
     name: "enlarge",
     duration: 0.9,
-    start: createTransform(360, [-0.25, 0.0, 0.0], 1.0),
-    end: createTransform(360, [-0.1, 0.0, 0.0], 1.35),
+    start: createTransform(360, [-0.25, 0, 0], 1),
+    end: createTransform(360, [-0.1, 0, 0], 1.35),
   },
   {
     name: "move_about",
     duration: 1.4,
     custom: true,
-    compute: function (progress) {
-      var wiggleX = -0.1 + 0.2 * Math.sin(progress * Math.PI * 2.0);
-      var wiggleY = 0.05 * Math.sin(progress * Math.PI);
-      var wiggleZ = 0.12 * Math.cos(progress * Math.PI * 2.0);
-      var rotation = 360 + 45 * progress;
-      var scale = 1.35 + 0.05 * Math.sin(progress * Math.PI * 4.0);
-      return createTransform(rotation, [wiggleX, wiggleY, wiggleZ], scale);
+    compute: function (p) {
+      var wx = -0.1 + 0.2 * Math.sin(p * Math.PI * 2);
+      var wy = 0.05 * Math.sin(p * Math.PI);
+      var wz = 0.12 * Math.cos(p * Math.PI * 2);
+      var r = 360 + 45 * p;
+      var s = 1.35 + 0.05 * Math.sin(p * Math.PI * 4);
+      return createTransform(r, [wx, wy, wz], s);
     },
   },
 ];
+
+// 3. Set the default active sequence
+var sequenceKeyframes = assignmentKeyframes;
 var isSequenceRunning = false;
 var sequenceIndex = 0;
 var sequenceTime = 0;
@@ -122,7 +187,7 @@ function resizeCanvasMaintainingAspect() {
   }
 
   var maxWidth = Math.min(window.innerWidth - 80, 1200);
-  var maxHeight = Math.min(window.innerHeight - 160, 800);
+  var maxHeight = Math.min(window.innerHeight - 115, 800);
   var width = maxWidth;
   var height = width / targetAspectRatio;
 
@@ -212,25 +277,33 @@ function updateSequence(deltaSeconds) {
     return;
   }
 
-  sequenceTime += deltaSeconds;
+  sequenceTime += deltaSeconds * animationSpeed;
   var duration = Math.max(currentStage.duration, 0.0001);
-  var progress = Math.min(sequenceTime / duration, 1.0);
+  var progress = sequenceTime / duration; // Allow progress > 1.0 temporarily for check below
+
+  // Calculate Transform
+  var calcProgress = Math.min(progress, 1.0);
 
   if (currentStage.custom && typeof currentStage.compute === "function") {
-    currentSequenceTransform = currentStage.compute(progress);
+    currentSequenceTransform = currentStage.compute(calcProgress);
   } else {
     currentSequenceTransform = interpolateTransform(
       currentStage.start,
       currentStage.end,
-      progress
+      calcProgress
     );
   }
 
+  // Check if stage is complete
   if (progress >= 1.0) {
-    sequenceIndex += 1;
-    sequenceTime = 0;
-    if (sequenceIndex >= sequenceKeyframes.length) {
-      stopSequence();
+    if (currentStage.loop) {
+      sequenceTime = 0;
+    } else {
+      sequenceIndex += 1;
+      sequenceTime = 0;
+      if (sequenceIndex >= sequenceKeyframes.length) {
+        stopSequence();
+      }
     }
   }
 }
@@ -242,19 +315,6 @@ function render(now) {
   var deltaSeconds = lastFrameTime ? (now - lastFrameTime) / 1000.0 : 0;
   lastFrameTime = now;
 
-  // --- PART 1: STOP THE AUTOMATIC UPDATE ---
-  if (isSequenceRunning) {
-    updateSequence(deltaSeconds);
-  } else if (isAnimating && !isManualRotation) {
-    // ^^^ THIS IS THE KEY FIX ^^^
-    // We added "&& !isManualRotation".
-    // This means: Only do the automatic math if we are NOT in manual mode.
-    animationAngle += 0.5 * animationSpeed;
-    if (animationAngle >= 360) {
-      animationAngle -= 360;
-    }
-  }
-
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   modelViewMatrix = lookAt(
@@ -263,23 +323,31 @@ function render(now) {
     vec3(0.0, 1.0, 0.0)
   );
 
-  // --- PART 2: CHOOSE ONLY ONE ROTATION MODE ---
-  var modelMatrix = mat4(); // Start fresh
+  var modelMatrix = mat4(); // Start with Identity (No Rotation)
 
+  // CASE 1: SEQUENCE ANIMATION
   if (isSequenceRunning) {
-    // Mode 1: TV Sequence
+    updateSequence(deltaSeconds);
     modelMatrix = buildModelMatrix(currentSequenceTransform);
-  } else if (isManualRotation) {
-    // Mode 2: Manual Control (The fix for your "roty" issue)
-    // We use 'manualY' here directly. We do NOT add 'animationAngle'.
-    modelMatrix = mult(modelMatrix, rotate(manualX, 1, 0, 0));
-    modelMatrix = mult(modelMatrix, rotate(manualY, 0, 1, 0)); // Controlled by Rot Y slider
-    modelMatrix = mult(modelMatrix, rotate(manualZ, 0, 0, 1));
-  } else {
-    // Mode 3: Automatic Idle Spin
-    // This only runs if Manual Mode is FALSE.
+  }
+
+  // CASE 2: LEFT ROTATE MODE
+  else if (appliedMode === "left_rotate") {
+    if (isAnimating) {
+      animationAngle += 50.0 * deltaSeconds * animationSpeed;
+      if (animationAngle >= 360) animationAngle -= 360;
+    }
     modelMatrix = rotate(animationAngle, 0, 1, 0);
   }
+
+  // CASE 3: MANUAL CONTROL
+  else if (appliedMode === "manual") {
+    modelMatrix = mult(modelMatrix, rotate(manualX, 1, 0, 0));
+    modelMatrix = mult(modelMatrix, rotate(manualY, 0, 1, 0));
+    modelMatrix = mult(modelMatrix, rotate(manualZ, 0, 0, 1));
+  }
+
+  // CASE 4: NONE (Default)
 
   modelViewMatrix = mult(modelViewMatrix, modelMatrix);
 
@@ -448,7 +516,7 @@ function setupUIControls() {
   var presetSelect = document.getElementById("color_preset");
   var playPauseButton = document.getElementById("play_pause_button");
   var rotationSelect = document.getElementById("rotation_sequence_select");
-  var runRotationButton = document.getElementById("run_rotation_button");
+  var applyRotationButton = document.getElementById("apply_rotation_button");
   var lightingModeSelect = document.getElementById("lighting_mode_select");
   var applyLightingButton = document.getElementById("apply_lighting_button");
   var resetButton = document.getElementById("reset_button");
@@ -540,7 +608,8 @@ function setupUIControls() {
   }
 
   function updatePlayPauseButton() {
-    if (isAnimating) {
+    var isRunning = isSequenceRunning || isAnimating;
+    if (isRunning) {
       // Stop state (red)
       playPauseButton.classList.remove("play_state");
       playPauseButton.classList.add("pause_state");
@@ -591,7 +660,16 @@ function setupUIControls() {
   });
 
   playPauseButton.addEventListener("click", function () {
-    isAnimating = !isAnimating;
+    if (appliedMode === "sequence") {
+      isSequenceRunning = !isSequenceRunning;
+      isAnimating = false;
+    } else if (appliedMode === "manual") {
+      // Manual usually doesn't play
+    } else if (appliedMode === "left_rotate") {
+      isAnimating = !isAnimating; // Toggle spin for Left Rotate
+    }
+    // If appliedMode is "none", clicking start does nothing (or you can make it alert user)
+
     updatePlayPauseButton();
   });
 
@@ -607,7 +685,7 @@ function setupUIControls() {
     manualZ = e.target.value;
   });
 
-  if (runRotationButton) {
+  if (applyRotationButton) {
     if (applyLightingButton) {
       applyLightingButton.addEventListener("click", function () {
         var selectedMode = lightingModeSelect
@@ -628,78 +706,96 @@ function setupUIControls() {
         makeL();
       });
     }
-
-    runRotationButton.addEventListener("click", function () {
-      var selected = rotationSelect.value;
-
-      if (selected === "full_sequence") {
-        // Mode 1: Run the TV Ident Sequence
-        isManualRotation = false;
-        isAnimating = false;
-        startSequence();
-        updatePlayPauseButton(); // Optional: update UI state
-      } else if (selected === "manual_360") {
-        // Mode 2: Enable Manual Rotation
+    if (applyRotationButton) {
+      applyRotationButton.addEventListener("click", function () {
+        var selected = rotationSelect.value;
         isSequenceRunning = false; // Stop any running sequence
         isAnimating = false; // Stop the auto-spin
-        isManualRotation = true; // Enable our new mode
+
+        if (selected === "manual_360") {
+          appliedMode = "manual";
+          isManualRotation = true;
+        } else if (selected === "left_rotate") {
+          appliedMode = "left_rotate";
+          isManualRotation = false;
+        } else {
+          appliedMode = "sequence";
+          isManualRotation = false;
+
+          if (selected === "tv_ident_seq") {
+            sequenceKeyframes = tvIdentKeyframes;
+          } else {
+            sequenceKeyframes = assignmentKeyframes;
+          }
+
+          startSequence();
+          isSequenceRunning = false; // Pause immediately
+        }
+
+        updatePlayPauseButton();
+      });
+    }
+
+    // Initialize button state
+    updatePlayPauseButton();
+
+    resetButton.addEventListener("click", function () {
+      animationAngle = 0;
+      animationSpeed = 1.0;
+      extrusionDepth = 0.1;
+      primaryColor = [1.0, 0.0, 0.0, 1.0];
+      secondaryColor = [0.0, 1.0, 0.0, 1.0];
+      customText = "L";
+
+      // Reset Modes
+      stopSequence();
+      appliedMode = "none"; // Go back to default/static state
+      isManualRotation = false;
+      isAnimating = false;
+
+      lightingMode = "neutral";
+      lightingFactor = 1.0;
+      manualX = 0;
+      manualY = 0;
+      manualZ = 0;
+
+      // Reset text input
+      textInput.value = customText; // attention
+
+      // Reset sliders
+      extrusionSlider.value = extrusionDepth;
+      speedSlider.value = animationSpeed;
+      rotationXSlider.value = 0;
+      rotationYSlider.value = 0;
+      rotationZSlider.value = 0;
+
+      updateExtrusionDepth(extrusionDepth);
+      updateSpeed(animationSpeed);
+      colorPicker1.value = "#ff0000";
+      colorPicker2.value = "#00ff00";
+      presetSelect.value = "custom";
+      if (lightingModeSelect) {
+        lightingModeSelect.value = "neutral";
+      }
+
+      makeL();
+    });
+
+    // Keyboard events
+    window.addEventListener("keydown", function (e) {
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          isAnimating = !isAnimating;
+          updatePlayPauseButton();
+          break;
+        case "KeyR":
+          resetButton.click();
+          break;
       }
     });
+
+    // Window resize event (maintain aspect ratio)
+    window.addEventListener("resize", resizeCanvasMaintainingAspect);
   }
-
-  // Initialize button state
-  updatePlayPauseButton();
-
-  resetButton.addEventListener("click", function () {
-    animationAngle = 0;
-    animationSpeed = 1.0;
-    extrusionDepth = 0.1;
-    primaryColor = [1.0, 0.0, 0.0, 1.0];
-    secondaryColor = [0.0, 1.0, 0.0, 1.0];
-    customText = "L";
-    stopSequence();
-    lightingMode = "neutral";
-    lightingFactor = 1.0;
-    manualX = 0;
-    manualY = 0;
-    manualZ = 0;
-
-    // Reset text input
-    textInput.value = customText; // attention
-
-    // Reset sliders
-    extrusionSlider.value = extrusionDepth;
-    speedSlider.value = animationSpeed;
-    rotationXSlider.value = 0;
-    rotationYSlider.value = 0;
-    rotationZSlider.value = 0;
-
-    updateExtrusionDepth(extrusionDepth);
-    updateSpeed(animationSpeed);
-    colorPicker1.value = "#ff0000";
-    colorPicker2.value = "#00ff00";
-    presetSelect.value = "custom";
-    if (lightingModeSelect) {
-      lightingModeSelect.value = "neutral";
-    }
-
-    makeL();
-  });
-
-  // Keyboard events
-  window.addEventListener("keydown", function (e) {
-    switch (e.code) {
-      case "Space":
-        e.preventDefault();
-        isAnimating = !isAnimating;
-        updatePlayPauseButton();
-        break;
-      case "KeyR":
-        resetButton.click();
-        break;
-    }
-  });
-
-  // Window resize event (maintain aspect ratio)
-  window.addEventListener("resize", resizeCanvasMaintainingAspect);
 }
