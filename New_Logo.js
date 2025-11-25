@@ -52,14 +52,35 @@ function configureWEBGL() {
 }
 
 function makeLogo() {
-    // O (full torus)
-    createTorus(0.7, 0.3, 64, 32, 0.0, 2.0 * Math.PI);
+    makeU();
+    // make second torus for C
+    makeC();
+    createTorus(0.8, 0.2, 36, 36, Math.PI/6, 11 * Math.PI / 6);
+}
 
-    // C (torus with gap)
-    //createTorus(0.7, 0.3, 64, 32, Math.PI/6, 11 * Math.PI/6);
+function makeC(){
+    let data = createTorus(0.8, 0.2, 36, 36, Math.PI/6, 11 * Math.PI / 6);
+    object.push(data);
+}
 
-    // add cylinders to close the gap in C
-    createCylinder(0.3, 1, 32);
+function makeU(){
+    let U = { parts: [] };
+
+    // left cylinder
+    let left = createCylinder(0.2, 2.0, 36);
+    left.localMatrix = mult(translate(-0.6, 0, 0), rotate(90, [0,0,1]));
+    U.parts.push(left);
+
+    // right cylinder
+    let right = createCylinder(0.2, 2.0, 36);
+    right.localMatrix = mult(translate(0.6, 0, 0), rotate(90, [0,0,1]));
+    U.parts.push(right);
+
+    // bottom torus (half circle)
+    let bottom = createTorus(0.6, 0.2, 36, 36, 0, Math.PI);
+    bottom.localMatrix = translate(0, -1.0, 0); // shift downward
+    U.parts.push(bottom);
+    object.push(U);
 }
 
 
@@ -126,7 +147,8 @@ function createTorus(R, r, segmentsR, segmentsT, startAngle, endAngle) {
     data.indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-    object.push(data);
+
+    return data;
 }
 
 function createCylinder(radius, height, segments) {
@@ -196,11 +218,15 @@ function createCylinder(radius, height, segments) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
-    object.push(data);
+    return data;
 }
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // enable vertex arrays
+    gl.enableVertexAttribArray(vNormal);
+    gl.enableVertexAttribArray(vPosition);
+    gl.enableVertexAttribArray(vColor);
 
     angle += 1.0; // rotate 1 degree per frame
     for (let i = 0; i < object.length; i++) {
@@ -208,35 +234,52 @@ function render() {
         if (i === 1) translateVec = [1.3, 0, 0]; // move second torus to the right
         if (i === 2) translateVec = [1.2, 0, 0]; // move cylinder to close C
 
-        modelViewMatrix = mult(
-            lookAt(
-                vec3(0.0, 0.0, 6.0),
-                vec3(0.0, 0.0, 0.0),
-                vec3(0.0, 1.0, 0.0)
-            ),
-            mult(translate(translateVec[0], translateVec[1], translateVec[2]),rotate(angle, vec3(1,1,0)))
-        );
-
-        //send matrices to GPU
-        gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-        gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
-        gl.uniformMatrix4fv(normalMatrixLoc, false, flatten(normalMatrix(modelViewMatrix)));
-
-        // enable vertex arrays
-        gl.enableVertexAttribArray(vNormal);
-        gl.enableVertexAttribArray(vPosition);
-        gl.enableVertexAttribArray(vColor);
-
-        // bind attributes and draw
-        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].normalBuffer);  
-        gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].vertexBuffer);
-        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-        gl.uniform4fv(vColor, flatten(vec4(0.2, 0.6, 0.8, 1.0))); // set color
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object[i].indexBuffer);
-        gl.drawElements(gl.TRIANGLES, object[i].numIndices, gl.UNSIGNED_SHORT, 0);
-
+        for (let obj of object) {
+            if (obj.parts) {
+                // This is a grouped object (like U)
+                obj.parentMatrix = mult(rotate(angle, [1,1,0]), translate(0,0,0));
+                for (let part of obj.parts) {
+                    let mv = mult(
+                        lookAt(
+                            vec3(0,0,6), 
+                            vec3(0,0,0), 
+                            vec3(0,1,0)),
+                        mult(obj.parentMatrix, part.localMatrix)
+                    );
+                    drawPart(part, mv);
+                }
+            }
+            else {
+                // This is a standalone object
+                let mv = mult(
+                    lookAt(
+                        vec3(0,0,6), 
+                        vec3(0,0,0), 
+                        vec3(0,1,0)),
+                    rotate(angle, [1,1,0])
+                );
+                drawPart(obj, mv);
+            }
+        }
     }
     requestAnimationFrame(render);
 } 
+
+function drawPart(part, mv) {
+    //send matrices to GPU
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mv));
+    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
+    gl.uniformMatrix4fv(normalMatrixLoc, false, flatten(normalMatrix(mv)));
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, part.normalBuffer);
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, part.vertexBuffer);
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+
+    gl.uniform4fv(vColor, flatten(vec4(0.2, 0.6, 0.8, 1.0)));
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, part.numIndices, gl.UNSIGNED_SHORT, 0);
+}
+
