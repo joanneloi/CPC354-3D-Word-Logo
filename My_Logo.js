@@ -457,6 +457,9 @@ function setupUIControls() {
         }
         colorPicker1.value = rgbToHex(primaryColor);
         colorPicker2.value = rgbToHex(secondaryColor);
+        if(typeof window.refreshColorCircles === 'function') {
+            window.refreshColorCircles();
+        }
         makeL();
     }
 
@@ -575,6 +578,9 @@ function setupUIControls() {
         colorPicker1.value = '#ff0000';
         colorPicker2.value = '#00ff00';
         presetSelect.value = 'custom';
+        if(typeof window.refreshColorCircles === 'function') {
+            window.refreshColorCircles();
+        }
         if(lightingModeSelect) {
             lightingModeSelect.value = 'neutral';
         }
