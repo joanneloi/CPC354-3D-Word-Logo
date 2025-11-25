@@ -5,7 +5,7 @@ var modelViewMatrix, projectionMatrix, normalMatrix;
 var modelViewMatrixLoc, projectionMatrixLoc, normalMatrixLoc;
 
 // create torus
-var torusVertexBuffer, torusNormalBuffer, torusIndexBuffer;
+var vertexBuffer, normalBuffer, indexBuffer;
 var numIndices;
 
 var angle = 0.0;
@@ -53,10 +53,13 @@ function configureWEBGL() {
 
 function makeLogo() {
     // O (full torus)
-    createTorus(0.9, 0.3, 64, 32, 0.0, 2.0 * Math.PI);
+    createTorus(0.7, 0.3, 64, 32, 0.0, 2.0 * Math.PI);
 
     // C (torus with gap)
-    createTorus(0.9, 0.3, 64, 32, 0.3 * Math.PI, 1.7 * Math.PI);
+    //createTorus(0.7, 0.3, 64, 32, Math.PI/6, 11 * Math.PI/6);
+
+    // add cylinders to close the gap in C
+    createCylinder(0.3, 1, 32);
 }
 
 
@@ -110,24 +113,90 @@ function createTorus(R, r, segmentsR, segmentsT, startAngle, endAngle) {
     data.normals = normals;
 
     // upload position buffer
-    data.torusVertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, data.torusVertexBuffer);
+    data.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, data.vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
     // upload normal buffer
-    data.torusNormalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, data.torusNormalBuffer);
+    data.normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, data.normalBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
 
     // upload index buffer
-    data.torusIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.torusIndexBuffer);
+    data.indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
     object.push(data);
 }
 
-function createSylinder(){
+function createCylinder(radius, height, segments) {
+    let data = {};
+    const positions = [];
+    const normals = [];
+    const indices = [];
 
+    // Cylinder along Y axis (centered at origin)
+    for (let i = 0; i <= segments; ++i) {
+        const theta = 2.0 * Math.PI * i / segments;
+        const x = radius * Math.cos(theta);
+        const z = radius * Math.sin(theta);
+
+        // top vertex
+        positions.push(x, height / 2, z, 1.0);
+        normals.push(x, 0, z); // side normal
+        // bottom vertex
+        positions.push(x, -height / 2, z, 1.0);
+        normals.push(x, 0, z); 
+    }
+
+    // Build side indices
+    for (let i = 0; i < segments; ++i) {
+        const top1 = i * 2;
+        const bottom1 = top1 + 1;
+        const top2 = ((i + 1) % segments) * 2;
+        const bottom2 = top2 + 1;
+
+        // two triangles per quad
+        indices.push(top1, bottom1, top2);
+        indices.push(bottom1, bottom2, top2);
+    }
+
+    // Optionally, add top and bottom caps
+    const topCenterIndex = positions.length / 4;
+    positions.push(0, height / 2, 0, 1.0);  // top center
+    normals.push(0, 1, 0);
+    const bottomCenterIndex = topCenterIndex + 1;
+    positions.push(0, -height / 2, 0, 1.0); // bottom center
+    normals.push(0, -1, 0);
+
+    for (let i = 0; i < segments; ++i) {
+        const top1 = i * 2;
+        const top2 = ((i + 1) % segments) * 2;
+        indices.push(top1, top2, topCenterIndex);
+
+        const bottom1 = i * 2 + 1;
+        const bottom2 = ((i + 1) % segments) * 2 + 1;
+        indices.push(bottom2, bottom1, bottomCenterIndex);
+    }
+
+    data.numIndices = indices.length;
+    data.positions = positions;
+    data.normals = normals;
+
+    // Upload buffers to GPU
+    data.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, data.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    data.normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, data.normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+    data.indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    object.push(data);
 }
 
 function render() {
@@ -137,6 +206,7 @@ function render() {
     for (let i = 0; i < object.length; i++) {
         let translateVec = [-1.3, 0, 0]; // default
         if (i === 1) translateVec = [1.3, 0, 0]; // move second torus to the right
+        if (i === 2) translateVec = [1.2, 0, 0]; // move cylinder to close C
 
         modelViewMatrix = mult(
             lookAt(
@@ -144,7 +214,7 @@ function render() {
                 vec3(0.0, 0.0, 0.0),
                 vec3(0.0, 1.0, 0.0)
             ),
-            mult(translate(translateVec[0], translateVec[1], translateVec[2]), rotate(angle, [1, 1, 0]))
+            mult(translate(translateVec[0], translateVec[1], translateVec[2]),rotate(angle, vec3(1,1,0)))
         );
 
         //send matrices to GPU
@@ -158,13 +228,13 @@ function render() {
         gl.enableVertexAttribArray(vColor);
 
         // bind attributes and draw
-        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].torusNormalBuffer);  
+        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].normalBuffer);  
         gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].torusVertexBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, object[i].vertexBuffer);
         gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
         gl.uniform4fv(vColor, flatten(vec4(0.2, 0.6, 0.8, 1.0))); // set color
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object[i].torusIndexBuffer);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object[i].indexBuffer);
         gl.drawElements(gl.TRIANGLES, object[i].numIndices, gl.UNSIGNED_SHORT, 0);
 
     }
