@@ -14,17 +14,13 @@ var object = [];
 var vPosition, vColor, vNormal;
 
 window.onload = function init() {
-    getUIElements();
     configureWEBGL();
     makeLogo();
     render();
 }
 
-function getUIElements() {
-    canvas = document.getElementById("gl-canvas");
-}
-
 function configureWEBGL() {
+    canvas = document.getElementById("gl_canvas");
     gl = canvas.getContext('webgl2');
     if(!gl) alert("WebGL 2.0 isn't available");
     
@@ -32,7 +28,7 @@ function configureWEBGL() {
     gl.clearColor(1.0, 1.0, 1.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
-    program = initShaders(gl, "vertex-shader", "fragment-shader");
+    program = initShaders(gl, "vertex_shader", "fragment_shader");
     gl.useProgram(program);
     
     // get attribute and uniform locations
@@ -282,3 +278,5 @@ function drawPart(part, mv) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.indexBuffer);
     gl.drawElements(gl.TRIANGLES, part.numIndices, gl.UNSIGNED_SHORT, 0);
 }
+
+
