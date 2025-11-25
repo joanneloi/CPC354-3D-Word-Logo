@@ -591,6 +591,43 @@ function setupUIControls() {
 
     // Window resize event (maintain aspect ratio)
     window.addEventListener('resize', resizeCanvasMaintainingAspect);
+
+          (function () {
+        const bindings = [
+          {
+            inputId: "color_picker",
+            circleSelector: '[data-circle="primary"]',
+          },
+          {
+            inputId: "color_picker_2",
+            circleSelector: '[data-circle="secondary"]',
+          },
+        ];
+
+        function syncCircle(inputId, circleSelector) {
+          const input = document.getElementById(inputId);
+          const circle = document.querySelector(circleSelector);
+          if (input && circle) {
+            circle.style.background = input.value;
+          }
+        }
+
+        window.refreshColorCircles = function () {
+          bindings.forEach(({ inputId, circleSelector }) =>
+            syncCircle(inputId, circleSelector)
+          );
+        };
+
+        bindings.forEach(({ inputId, circleSelector }) => {
+          syncCircle(inputId, circleSelector);
+          const input = document.getElementById(inputId);
+          if (input) {
+            input.addEventListener("input", () =>
+              syncCircle(inputId, circleSelector)
+            );
+          }
+        });
+      })();
 }
 
 //----------------new 3D letter generation code----------------//

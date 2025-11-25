@@ -129,14 +129,17 @@
 
           <div class="color_layout_row">
             <div class="color_picker_item">
-              <label for="color_picker">Primary</label>
-              <input type="color" id="color_picker" value="#ff0000" />
+                <label for="color_picker">Primary</label>
+                <div class="color_circle" data-circle="primary"></div>
+                <input type="color" id="color_picker" value="#ff0000" />
             </div>
 
             <div class="color_picker_item">
-              <label for="color_picker_2">Secondary</label>
-              <input type="color" id="color_picker_2" value="#00ff00" />
+                <label for="color_picker_2">Secondary</label>
+                <div class="color_circle" data-circle="secondary"></div>
+                <input type="color" id="color_picker_2" value="#00ff00" />
             </div>
+
 
             <div class="color_preset_row">
               <label for="color_preset">Palette:</label>
@@ -387,7 +390,8 @@
         border: 3px solid var(--orange);
         position: relative;
         overflow: hidden;
-        background: #fff;
+        background: #fff;    
+        transition: background 0.3s ease;
       }
 
       .color_circle input[type="color"] {
@@ -448,44 +452,5 @@
         }
       }
     </style>
-
-    <script>
-      (function () {
-        const bindings = [
-          {
-            inputId: "color_picker",
-            circleSelector: '[data-circle="primary"]',
-          },
-          {
-            inputId: "color_picker_2",
-            circleSelector: '[data-circle="secondary"]',
-          },
-        ];
-
-        function syncCircle(inputId, circleSelector) {
-          const input = document.getElementById(inputId);
-          const circle = document.querySelector(circleSelector);
-          if (input && circle) {
-            circle.style.background = input.value;
-          }
-        }
-
-        window.refreshColorCircles = function () {
-          bindings.forEach(({ inputId, circleSelector }) =>
-            syncCircle(inputId, circleSelector)
-          );
-        };
-
-        bindings.forEach(({ inputId, circleSelector }) => {
-          syncCircle(inputId, circleSelector);
-          const input = document.getElementById(inputId);
-          if (input) {
-            input.addEventListener("input", () =>
-              syncCircle(inputId, circleSelector)
-            );
-          }
-        });
-      })();
-    </script>
   </body>
 </html>
