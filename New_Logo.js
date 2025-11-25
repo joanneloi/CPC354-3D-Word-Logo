@@ -67,18 +67,18 @@ function makeU(){
     let U = { parts: [] };
 
     // left cylinder
-    let left = createCylinder(0.2, 2.0, 36);
-    left.localMatrix = mult(translate(-0.6, 0, 0), rotate(90, [0,0,1]));
+    let left = createCylinder(0.2, 1.2, 36);
+    left.localMatrix = translate(-0.6, 0.3, 0);
     U.parts.push(left);
 
     // right cylinder
-    let right = createCylinder(0.2, 2.0, 36);
-    right.localMatrix = mult(translate(0.6, 0, 0), rotate(90, [0,0,1]));
+    let right = createCylinder(0.2, 1.2, 36);
+    right.localMatrix = translate(0.6, 0.3, 0);
     U.parts.push(right);
 
     // bottom torus (half circle)
-    let bottom = createTorus(0.6, 0.2, 36, 36, 0, Math.PI);
-    bottom.localMatrix = translate(0, -1.0, 0); // shift downward
+    let bottom = createTorus(0.6, 0.2, 36, 36, Math.PI, 2 * Math.PI);
+    bottom.localMatrix = translate(0, -0.3, 0); // shift downward
     U.parts.push(bottom);
     object.push(U);
 }
@@ -230,36 +230,36 @@ function render() {
 
     angle += 1.0; // rotate 1 degree per frame
     for (let i = 0; i < object.length; i++) {
-        let translateVec = [-1.3, 0, 0]; // default
-        if (i === 1) translateVec = [1.3, 0, 0]; // move second torus to the right
-        if (i === 2) translateVec = [1.2, 0, 0]; // move cylinder to close C
+        let obj = object[i];
 
-        for (let obj of object) {
-            if (obj.parts) {
-                // This is a grouped object (like U)
-                obj.parentMatrix = mult(rotate(angle, [1,1,0]), translate(0,0,0));
-                for (let part of obj.parts) {
-                    let mv = mult(
-                        lookAt(
-                            vec3(0,0,6), 
-                            vec3(0,0,0), 
-                            vec3(0,1,0)),
-                        mult(obj.parentMatrix, part.localMatrix)
-                    );
-                    drawPart(part, mv);
-                }
-            }
-            else {
-                // This is a standalone object
+        let translateVec = [-3, 0, 0]; // default
+        if (i === 1) translateVec = [0, 0, 0];
+        if (i === 2) translateVec = [1.2, 0, 0];
+
+        if (obj.parts) {
+            // This is a grouped object (like U)
+            obj.parentMatrix = translate(translateVec[0], translateVec[1], translateVec[2]);
+            for (let part of obj.parts) {
                 let mv = mult(
                     lookAt(
-                        vec3(0,0,6), 
+                        vec3(0,0,10), 
                         vec3(0,0,0), 
                         vec3(0,1,0)),
-                    rotate(angle, [1,1,0])
+                    mult(obj.parentMatrix, part.localMatrix)
                 );
-                drawPart(obj, mv);
+                drawPart(part, mv);
             }
+        }
+        else {
+            // This is a standalone object
+            let mv = mult(
+                lookAt(
+                    vec3(0,0,10), 
+                    vec3(0,0,0), 
+                    vec3(0,1,0)),
+                translate(translateVec[0], translateVec[1], translateVec[2])
+            );
+            drawPart(obj, mv);
         }
     }
     requestAnimationFrame(render);
@@ -282,4 +282,3 @@ function drawPart(part, mv) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.indexBuffer);
     gl.drawElements(gl.TRIANGLES, part.numIndices, gl.UNSIGNED_SHORT, 0);
 }
-
