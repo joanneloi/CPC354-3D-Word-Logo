@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+<title>TV Ident</title>
+<link href="/style.css" rel="stylesheet" type="text/css" media="all">
+<link href='https://fonts.googleapis.com/css?family=Caveat Brush' rel='stylesheet'>
+<link href='https://fonts.googleapis.com/css?family=Caveat' rel='stylesheet'>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+ 
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec3 vPosition;
+        attribute vec3 vColor;
+ 
+        uniform mat4 vTranslation; //
+        uniform mat4 vRotation; // 
+        uniform float changer;
+ 
+        varying vec4 color;
+ 
+        void main()
+        {
+            gl_Position = vTranslation * vRotation * vec4(vPosition, 1.0);
+            color = vec4(vColor, 1.0);
+            gl_Position.z = vPosition.z;
+            gl_Position.w = changer;
+        }
+    </script>
+ 
+    <script id="fragment-shader" type="x-shader/x-fragment">
+ 
+        precision mediump float;
+   
+        varying vec4 color;
+        
+        void main()
+        {
+            gl_FragColor = color;
+        }
+    </script>
+ 
+<script type="text/javascript" src="Common/webgl-utils.js"></script>
+<script type="text/javascript" src="Common/initShaders.js"></script>
+<script type="text/javascript" src="Common/MV.js"></script>
+<script type="text/javascript" src="assignment_1.js"></script>
+</head>   
+ 
+<body>
+    
+    <h2 id="gskt" align="center">3D GASKET 		
+        <div class="showGasket">
+            <i style="font-size:24px; color:red" align="center" class="fa">&#xf059;</i>
+            <span class="showGasketText">This is a TV Ident where the colour, number of subdivision, incremental size and speed will change according to the user's input. Have Fun!</span>
+        </div>
+    </h2>
+
+    <div id="starting">
+        <p align="center">By : <b> Ang Yee Teng(142764)</b>, <b>Audrey Lim Wy Leen(142278)</b>, <b>Tang Yee Ping(142982)</b>, <b>Yeoh Li Xuan(141198)</b></p>
+    </div>
+    <table align="center" border="1">
+        <tr>
+            <td width = "250">
+                <h3>
+                    Gasket Properties
+                </h3>
+ 
+                <form>
+                    <p>
+                        <label for="colour1">Colour 1:</label>
+                        <input type="color" id="colour1" value="#ff0000">
+                        <br>
+ 
+                        <label for="colour2">Colour 2:</label>
+                        <input type="color" id="colour2" value="#00ff00">
+                        <br>
+ 
+                        <label for="colour3">Colour 3:</label>
+                        <input type="color" id="colour3" value="#0000ff">
+                        <br>
+ 
+                        <label for="colour4">Colour 4:</label>
+                        <input type="color" id="colour4" value="#ffffff">
+                        <br>
+                    </p>
+ 
+                    <p>
+                        Number of Subdivisions (1-6):
+                        <br>
+ 
+                        <input id="subdivision" type="range" 
+                            min="1" max="6" step="1" value="6" oninput="amount.value=subdivision.value">
+                        <output id="amount" name="amount" for="subdivision">6</output>
+                        <br>
+
+                        Incremental Size
+                        <br>
+
+                        <input id="zoom_Size" type="range" 
+                            min="1" max="3" step="0.5" value="2" oninput="zoomValue.value=zoom_Size.value">
+                        <output id="zoomValue" name="zoomValue" for="zoom_Size">2</output>
+                        <br>
+
+                        Translation
+                        <br>
+
+                        <label for="directionCheck">Top Left & Bottom Right:</label> 
+                        <input type="checkbox" id="directionCheck" onclick="translationDirection()">
+                        <p style="font-size: 14px">*Default: Bottom Left & Top Right only</p>
+                    </p>
+                    
+                    <h3>Animation Properties</h3>
+                    <p>Speed of Animation(10%-100%):  <br>
+                        <input id="rotate" type="range" min="10" max="100" step="10" value="50"oninput="rvalue.value=rotate.value"> 
+                        <output id="rvalue"  for="rotate">50</output><br>
+                    </p>
+ 
+                        <button class="button" id="start">Start</button>
+                        <button class="button" id="stop">Stop</button>
+                        <br>
+                </form>
+            </td>
+ 
+            <td width="450" height="580">
+                <div>
+                    <canvas id="gl-canvas" width="480" height="580">
+                        Oops ... your browser doesn't support the HTML5 canvas element
+                    </canvas>
+                </div>
+            </td>
+        </tr>
+    </table>
+ 
+    <script>
+        function showvalue(val) {
+          document.getElementById("slider_value").value=val; 
+        }
+    </script>
+ 
+    <style>
+        table {
+            
+            background: linear-gradient(to bottom, #ff9999 -2%, #66ccff 101%);
+        }
+        h3 
+        {
+            margin: 20px;
+            font-family: 'Caveat';
+            font-size: 20px;
+        }
+        p 
+        {
+            margin: 20px;
+            font-family: 'Caveat';
+            font-size: 18px;
+        }
+        
+        .button {
+        background-color: #ffffff;
+        border: 1px solid powerblue;
+        color: black;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        margin-left: 20px;
+        cursor: pointer;
+        border-radius: 10px;
+        font-family: 'Caveat Brush';
+        }
+        
+        .button:hover 
+        {
+        background-color: #ff9999;
+        }
+
+        #gskt
+        {
+            font-family:'Caveat Brush' ;
+            font-size: 36px;
+        }
+
+        #starting
+        {
+            font-family:'Caveat Brush' ;
+            font-size: 24px;
+            background-color: salmon;
+            color: black;
+        }
+
+        .showGasket {
+        position: relative;
+        display: inline-block;
+        }
+
+        .showGasket .showGasketText {
+        visibility: hidden;
+        width: 120px;
+        background-color: black;
+        color: #fff;
+        text-align: justify-all;
+        border-radius: 6px;
+        padding: 5px 0;
+        font-size: 16px;
+
+        /* Position the tooltip */
+        position: absolute;
+        z-index: 0;}
+
+        .showGasket:hover .showGasketText {
+        visibility: visible;
+        }
+    </style>
+    
+    </canvas>
+ 
+</body>
+</html>
