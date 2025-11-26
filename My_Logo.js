@@ -5,8 +5,8 @@ var points = [];
 var colors = [];
 var object = [];
 
-var modelViewMatrix, projectionMatrix, normalMatrix;
-var modelViewMatrixLoc, projectionMatrixLoc, normalMatrixLoc;
+var modelViewMatrix, projectionMatrix, normalMatrix, uLightingFactor;
+var modelViewMatrixLoc, projectionMatrixLoc, normalMatrixLoc, uLightingFactorLoc;
 
 var vPosition, vColor, vNormal;
 
@@ -26,6 +26,7 @@ var customText = "L"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
+var textScale = 0.7; // Scale factor to make text smaller
 
  
 // 1. The New Assignment Sequence
@@ -174,6 +175,7 @@ function configWebGL(){
     modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
     projectionMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
     normalMatrixLoc = gl.getUniformLocation(program, "normalMatrix");
+    uLightingFactorLoc = gl.getUniformLocation(program, "uLightingFactor");
 
     // Set up the projection matrix
     resizeCanvasMaintainingAspect();
@@ -184,29 +186,25 @@ function resizeCanvasMaintainingAspect() {
         return;
     }
 
-    var maxWidth = Math.min(window.innerWidth - 80, 1200);
-    var maxHeight = Math.min(window.innerHeight - 115, 800);
-    var width = maxWidth;
-    var height = width / targetAspectRatio;
-
-    if (height > maxHeight) {
-        height = maxHeight;
-        width = height * targetAspectRatio;
-    }
-
-    width = Math.max(320, width);
-    height = width / targetAspectRatio;
+    // Account for header (80px top) and control panel (480px + 32px spacing right)
+    var headerHeight = 80;
+    var controlPanelWidth = 512; // 480px panel + 32px spacing
+    var width = window.innerWidth - controlPanelWidth;
+    var height = window.innerHeight - headerHeight;
+    
+    // Calculate aspect ratio based on available space
+    var aspectRatio = width / height;
 
     canvas.width = width;
     canvas.height = height;
     canvas.style.width = width + "px";
     canvas.style.height = height + "px";
 
-    // Viewport and clear color
+    // Viewport and clear color (light orange background)
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    gl.clearColor(1.0, 0.968, 0.929, 1.0); // #fff7ed light orange
     gl.enable(gl.DEPTH_TEST);
-    projectionMatrix = perspective(45.0, targetAspectRatio, 0.1, 100.0);
+    projectionMatrix = perspective(45.0, aspectRatio, 0.1, 100.0);
 }
 
 function createTransform(rotation, position, scale) {
@@ -328,6 +326,12 @@ function setupUIControls() {
     var rotationYSlider = document.getElementById("rot_y");
     var rotationZSlider = document.getElementById("rot_z");
     
+    function syncColorCircles() {
+        if (typeof window.refreshColorCircles === "function") {
+            window.refreshColorCircles();
+        }
+    }
+
     // Function to update extrusion depth display and enforce limits
     function updateExtrusionDepth(newDepth) {
         extrusionDepth = Math.max(0.0, Math.min(0.5, newDepth));
@@ -403,6 +407,7 @@ function setupUIControls() {
         }
         colorPicker1.value = rgbToHex(primaryColor);
         colorPicker2.value = rgbToHex(secondaryColor);
+        syncColorCircles();
         makeLetter();
     }
 
@@ -419,6 +424,23 @@ function setupUIControls() {
             playPauseButton.classList.add("play_state");
             playPauseButton.textContent = "Start";
         }
+    }
+
+    // Unified function to toggle play/pause - used by both button and keyboard
+    function togglePlayPause() {
+        if (appliedMode === "sequence") {
+            isSequenceRunning = !isSequenceRunning;
+            isAnimating = false;
+        } else if (appliedMode === "left_rotate") {
+            isAnimating = !isAnimating; // Toggle spin for Left Rotate
+        } else if (appliedMode === "manual") {
+            // Manual mode doesn't have auto-animation, but allow toggle for consistency
+            isAnimating = !isAnimating;
+        } else if (appliedMode === "none") {
+            // If no mode is applied, allow simple rotation animation
+            isAnimating = !isAnimating;
+        }
+        updatePlayPauseButton();
     }
 
     // Event listeners
@@ -443,12 +465,14 @@ function setupUIControls() {
     colorPicker1.addEventListener('input', function(e) {
         primaryColor = hexToRgb(e.target.value);
         presetSelect.value = 'custom';
+        syncColorCircles();
         makeLetter();
     });
 
     colorPicker2.addEventListener('input', function(e) {
         secondaryColor = hexToRgb(e.target.value);
         presetSelect.value = 'custom';
+        syncColorCircles();
         makeLetter();
     });
 
@@ -459,16 +483,7 @@ function setupUIControls() {
     });
 
     playPauseButton.addEventListener("click", function () {
-        if (appliedMode === "sequence") {
-            isSequenceRunning = !isSequenceRunning;
-            isAnimating = false;
-        } else if (appliedMode === "manual") {
-            // Manual usually doesn't play
-        } else if (appliedMode === "left_rotate") {
-            isAnimating = !isAnimating; // Toggle spin for Left Rotate
-        }
-        // If appliedMode is "none", clicking start does nothing (or you can make it alert user)
-        updatePlayPauseButton();
+        togglePlayPause();
     });
 
     rotationXSlider.addEventListener("input", function (e) {
@@ -483,55 +498,49 @@ function setupUIControls() {
         manualZ = e.target.value;
     });
 
+    if (applyLightingButton) {
+        applyLightingButton.addEventListener("click", function () {
+            var selectedMode = lightingModeSelect ? lightingModeSelect.value : "neutral";
+            lightingMode = selectedMode;
+            switch (selectedMode) {
+                case "soft_glow":
+                    lightingFactor = 1.2;
+                    break;
+                case "dramatic":
+                    lightingFactor = 0.8;
+                    break;
+                default:
+                    lightingFactor = 1.0;
+                    break;
+            }
+        });
+    }
+
     if (applyRotationButton) {
-        if (applyLightingButton) {
-            applyLightingButton.addEventListener("click", function () {
-                var selectedMode = lightingModeSelect
-                    ? lightingModeSelect.value
-                    : "neutral";
-                lightingMode = selectedMode;
-                switch (selectedMode) {
-                    case "soft_glow":
-                        lightingFactor = 1.2;
-                        break;
-                    case "dramatic":
-                        lightingFactor = 0.8;
-                        break;
-                    default:
-                        lightingFactor = 1.0;
-                        break;
-                }
-                makeLetter();
-            });
-        }
+        applyRotationButton.addEventListener("click", function () {
+            var selected = rotationSelect.value;
+            isSequenceRunning = false; // Stop any running sequence
+            isAnimating = false; // Stop the auto-spin
 
-        if (applyRotationButton) {
-            applyRotationButton.addEventListener("click", function () {
-                var selected = rotationSelect.value;
-                isSequenceRunning = false; // Stop any running sequence
-                isAnimating = false; // Stop the auto-spin
-
-                if (selected === "manual_360") {
-                    appliedMode = "manual";
-                    isManualRotation = true;
-                } else if (selected === "left_rotate") {
-                    appliedMode = "left_rotate";
-                    isManualRotation = false;
+            if (selected === "manual_360") {
+                appliedMode = "manual";
+                isManualRotation = true;
+            } else if (selected === "left_rotate") {
+                appliedMode = "left_rotate";
+                isManualRotation = false;
+            } else {
+                appliedMode = "sequence";
+                isManualRotation = false;
+                if (selected === "tv_ident_seq") {
+                    sequenceKeyframes = tvIdentKeyframes;
                 } else {
-                    appliedMode = "sequence";
-                    isManualRotation = false;
-                    if (selected === "tv_ident_seq") {
-                        sequenceKeyframes = tvIdentKeyframes;
-                    } else {
-                        sequenceKeyframes = assignmentKeyframes;
-                    }
-                    startSequence();
-                    isSequenceRunning = false; // Pause immediately
+                    sequenceKeyframes = assignmentKeyframes;
                 }
-
-                updatePlayPauseButton();
-            });
-        }
+                startSequence();
+                isSequenceRunning = false; // Pause immediately
+            }
+            updatePlayPauseButton();
+        });
     }
 
     // Initialize button state
@@ -569,9 +578,11 @@ function setupUIControls() {
         colorPicker1.value = "#ff0000";
         colorPicker2.value = "#00ff00";
         presetSelect.value = "custom";
+        syncColorCircles();
         if (lightingModeSelect) {
             lightingModeSelect.value = "neutral";
         }
+        updatePlayPauseButton();
         makeLetter();
     });
 
@@ -580,10 +591,10 @@ function setupUIControls() {
         switch(e.code) {
             case 'Space':
                 e.preventDefault();
-                isAnimating = !isAnimating;
-                updatePlayPauseButton();
+                togglePlayPause();
                 break;
             case 'KeyR':
+                e.preventDefault();
                 resetButton.click();
                 break;
         }
@@ -669,18 +680,15 @@ function makeLetter() {
     }
 }
 
-// Example makeL() using extrudeIndexed
 function makeL() {
     let L2D = [
         [ vec2(-0.4,-0.5), vec2(-0.2,-0.5), vec2(-0.2,0.5), vec2(-0.4,0.5) ],
         [ vec2(-0.4,-0.5), vec2(0.2,-0.5), vec2(0.2,-0.25), vec2(-0.4,-0.25) ]
     ];
 
-    return extrudeIndexed(L2D, extrusionDepth,
-        primaryColor, secondaryColor, secondaryColor);
+    return extrudeIndexed(L2D, extrusionDepth, primaryColor, secondaryColor);
 }
 
-// Example makeE()
 function makeE() {
     let E2D = [
         [ vec2(-0.4,-0.5), vec2(-0.2,-0.5), vec2(-0.2,0.5), vec2(-0.4,0.5) ],
@@ -689,26 +697,22 @@ function makeE() {
         [ vec2(-0.4,-0.5), vec2(0.2,-0.5), vec2(0.2,-0.3), vec2(-0.4,-0.3) ]
     ];
 
-    return extrudeIndexed(E2D, extrusionDepth,
-        primaryColor, secondaryColor, secondaryColor);
+    return extrudeIndexed(E2D, extrusionDepth, primaryColor, secondaryColor);
 }
 
-// Example makeV()
 function makeV() {
     let V2D = [
         [ vec2(-0.4,0.5), vec2(-0.2,0.5), vec2(0.0,-0.5), vec2(-0.25,-0.5) ],
         [ vec2(0.2,0.5), vec2(0.4,0.5), vec2(0.25,-0.5), vec2(0.0,-0.5) ],
-        [ vec2(-0.25,-0.5), vec2(0.25,-0.5), vec2(0.25,-0.55), vec2(-0.25,-0.55) ]
+        [ vec2(-0.25,-0.25), vec2(0.25,-0.25), vec2(0.25,-0.5), vec2(-0.25,-0.5) ]
     ];
 
-    return extrudeIndexed(V2D, extrusionDepth,
-        primaryColor, secondaryColor, secondaryColor);
+    return extrudeIndexed(V2D, extrusionDepth, primaryColor, secondaryColor);
 }
 
 function makeO() {
     let loops = generateOOutline(64, 0.5, 0.25);
-    return extrudeIndexed(loops, extrusionDepth, 
-        primaryColor, secondaryColor, secondaryColor);
+    return extrudeIndexed(loops, extrusionDepth, primaryColor, secondaryColor);
 }
 
 function generateOOutline(segments, outerRadius, innerRadius) {
@@ -719,13 +723,13 @@ function generateOOutline(segments, outerRadius, innerRadius) {
         outer.push(vec2(Math.cos(t)*outerRadius, Math.sin(t)*outerRadius));
         inner.push(vec2(Math.cos(t)*innerRadius, Math.sin(t)*innerRadius));
     }
-    inner.reverse();
+    inner.reverse();  // CW winding for hole
     loops.push(outer);
     loops.push(inner);
     return loops;
 }
 
-function extrudeIndexed(loops2D, depth, colorFront, colorBack, colorSide) {
+function extrudeIndexed(loops2D, depth, colorFront, colorBack) {
     let positions = [], normals = [], colors = [], indices = [];
     let index = 0;
 
@@ -763,6 +767,14 @@ function extrudeIndexed(loops2D, depth, colorFront, colorBack, colorSide) {
             let len = Math.sqrt(dx*dx+dy*dy);
             let nx = dy/len, ny = -dx/len;
             let sideNormal = [nx, ny, 0];
+
+            let colorSide = [
+                (primaryColor[0] + secondaryColor[0]) / 2,
+                (primaryColor[1] + secondaryColor[1]) / 2,
+                (primaryColor[2] + secondaryColor[2]) / 2,
+                (primaryColor[3] + secondaryColor[3]) / 2  // optional, usually 1
+            ];
+
 
             let v0 = addVertex([loop[i][0], loop[i][1], depth], sideNormal, colorSide);
             let v1 = addVertex([loop[j][0], loop[j][1], depth], sideNormal, colorSide);
@@ -813,7 +825,7 @@ function render(now) {
     if (isSequenceRunning) {
         updateSequence(deltaSeconds);
         baseModelMatrix = buildModelMatrix(currentSequenceTransform);
-    } else if (appliedMode === "left_rotate") {
+    } else if (appliedMode === "left_rotate" || (appliedMode === "none" && isAnimating)) {
         if (isAnimating) {
             animationAngle += 50 * deltaSeconds * animationSpeed;
             if (animationAngle >= 360) animationAngle -= 360;
@@ -825,7 +837,18 @@ function render(now) {
         baseModelMatrix = mult(baseModelMatrix, rotate(manualZ, 0, 0, 1));
     }
 
+    // apply text scale
+    var scaleMatrix = mat4(
+        textScale, 0, 0, 0,
+        0, textScale, 0, 0,
+        0, 0, textScale, 0,
+        0, 0, 0, 1
+    );
+    baseModelMatrix = mult(baseModelMatrix, scaleMatrix);
+    
     modelViewMatrix = mult(modelViewMatrix, baseModelMatrix);
+
+    gl.uniform1f(uLightingFactorLoc, lightingFactor);
 
     // Draw all letters
     for (let i = 0; i < object.length; i++) {

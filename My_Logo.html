@@ -193,8 +193,10 @@
       in vec4 color;
       out vec4 fragColor;
 
+      uniform float uLightingFactor;
+
       void main() {
-          fragColor = color;
+        fragColor = color * uLightingFactor;
       }
     </script>
 
