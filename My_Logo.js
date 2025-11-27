@@ -155,7 +155,7 @@ window.onload = function init(){
     render();
 }
 
-// Configure WebGL Settings
+// configure webGL 
 function configWebGL(){
     canvas = document.getElementById("gl_canvas");
     gl = canvas.getContext('webgl2');
@@ -306,7 +306,7 @@ function offsetVertex(vertex, xOffset) {
 
 // UI Control Functions
 function setupUIControls() {
-    // Get UI elements
+    // get UI elements
     var textInput = document.getElementById("text_input");  //attention
     var extrusionSlider = document.getElementById("extrusion_slider");
     var speedSlider = document.getElementById("speed_slider");
@@ -331,7 +331,7 @@ function setupUIControls() {
         }
     }
 
-    // Function to update extrusion depth display and enforce limits
+    // update extrusion depth,enforce limits
     function updateExtrusionDepth(newDepth) {
         extrusionDepth = Math.max(0.0, Math.min(0.5, newDepth));
         extrusionValueDisplay.textContent = extrusionDepth.toFixed(2);
@@ -341,7 +341,7 @@ function setupUIControls() {
         makeLetter();
     }
     
-    // Function to update speed display and enforce limits
+    // update speed,enforce limits
     function updateSpeed(newSpeed) {
         animationSpeed = Math.max(0.1, Math.min(5.0, newSpeed));
         speedValueDisplay.textContent = animationSpeed.toFixed(1);
@@ -350,7 +350,7 @@ function setupUIControls() {
         }
     }
 
-    // Helper functions
+    // helper functions
     function hexToRgb(hex) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? [
@@ -380,22 +380,22 @@ function setupUIControls() {
     function applyColorPreset(preset) {
         switch(preset) {
             case 'sunset_glow':
-                // Warm, cinema-style colors
+                
                 primaryColor = [1.0, 0.5, 0.2, 1.0];   // sunset orange
                 secondaryColor = [0.9, 0.2, 0.4, 1.0];   // rosy pink
                 break;
             case 'ocean_wave':
-                // Comforting blue-green gradient
+                
                 primaryColor = [0.0, 0.6, 0.9, 1.0];   // ocean blue
                 secondaryColor = [0.0, 0.85, 0.7, 1.0];  // turquoise
                 break;
             case 'galaxy_mix':
-                // Cosmic neon look
+                
                 primaryColor = [0.4, 0.0, 0.6, 1.0];   // violet
                 secondaryColor = [0.0, 0.8, 1.0, 1.0];   // neon cyan
                 break;
             case 'candy_pastel':
-                // Soft, pretty pastel tones
+                
                 primaryColor = [1.0, 0.75, 0.85, 1.0]; // pink pastel
                 secondaryColor = [0.7, 0.9, 1.0, 1.0];   // blue pastel
                 break;
