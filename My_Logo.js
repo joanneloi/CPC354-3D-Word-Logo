@@ -664,7 +664,7 @@ function setupUIControls() {
       isSequenceRunning = !isSequenceRunning;
       isAnimating = false;
     } else if (appliedMode === "manual") {
-      // Manual usually doesn't play
+      // doesn't play
     } else if (appliedMode === "left_rotate") {
       isAnimating = !isAnimating; // Toggle spin for Left Rotate
     }
@@ -774,8 +774,8 @@ function setupUIControls() {
       colorPicker1.value = "#ff0000";
       colorPicker2.value = "#00ff00";
       presetSelect.value = "custom";
-      if (lightingModeSelect) {
-        lightingModeSelect.value = "neutral";
+      if (typeof window.refreshColorCircles === "function") {
+        window.refreshColorCircles();
       }
 
       makeL();
