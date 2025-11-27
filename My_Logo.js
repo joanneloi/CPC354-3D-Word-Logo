@@ -642,6 +642,8 @@ function setupUIControls() {
 }
 
 //----------------new 3D letter generation code----------------//
+
+
 function makeLetter() {
     object = []; // reset all objects
 
