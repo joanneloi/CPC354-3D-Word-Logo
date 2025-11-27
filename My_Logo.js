@@ -8,7 +8,8 @@ var modelViewMatrix, projectionMatrix;
 var modelViewMatrixLoc,
   projectionMatrixLoc,
   normalMatrixLoc,
-  uLightingFactorLoc;
+  uLightingFactorLoc,
+  uLightDirLoc;
 
 var vPosition, vColor, vNormal;
 
@@ -31,6 +32,7 @@ var customText = "Love"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
+let lightDir = [0.5, 0.5, 1.0];
 var textScale = 0.7; // Scale factor to make text smaller
 
 // TV Indent
@@ -126,6 +128,9 @@ function configWebGL() {
   projectionMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
   normalMatrixLoc = gl.getUniformLocation(program, "normalMatrix");
   uLightingFactorLoc = gl.getUniformLocation(program, "uLightingFactor");
+  uLightDirLoc = gl.getUniformLocation(program, "uLightDir");
+
+  gl.uniform3fv(uLightDirLoc, lightDir);
 
   // Set up the projection matrix
   resizeCanvasMaintainingAspect();
