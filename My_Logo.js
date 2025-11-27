@@ -1,11 +1,10 @@
 "use strict";
 
 var gl, program, canvas;
-var points = [];
-var colors = [];
+
 var object = [];
 
-var modelViewMatrix, projectionMatrix, normalMatrix, uLightingFactor;
+var modelViewMatrix, projectionMatrix;
 var modelViewMatrixLoc,
   projectionMatrixLoc,
   normalMatrixLoc,
@@ -18,7 +17,7 @@ var animationAngle = 0;
 var isAnimating = false; //default pause
 var animationSpeed = 1.0;
 var extrusionDepth = 0.1;
-var appliedMode = "none"; // "none", "manual", "sequence", "left_rotate"
+var appliedMode = "none"; // "none", "manual", "sequence", "left_rotate", "right_rotate"
 var isManualRotation = false; // The flag to switch modes
 var manualRotX = 0;
 var manualRotY = 0;
@@ -28,7 +27,7 @@ var manualTransY = 0;
 var manualTransZ = 0;
 var primaryColor = [1.0, 0.0, 0.0, 1.0];
 var secondaryColor = [0.0, 1.0, 0.0, 1.0];
-var customText = "L"; // need change later
+var customText = "Love"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
@@ -258,16 +257,14 @@ function updateSequence(deltaSeconds) {
   }
 }
 
-function offsetVertex(vertex, xOffset) {
-  return vec4(vertex[0] + xOffset, vertex[1], vertex[2], vertex[3]);
-}
-
 // UI Control Functions
 function setupUIControls() {
   // get UI elements
   var textInput = document.getElementById("text_input"); //attention
   var extrusionSlider = document.getElementById("extrusion_slider");
   var speedSlider = document.getElementById("speed_slider");
+  var scaleSlider = document.getElementById("scale_slider");
+  var scaleValueDisplay = document.getElementById("scale_value");
   var colorPicker1 = document.getElementById("color_picker");
   var colorPicker2 = document.getElementById("color_picker_2");
   var presetSelect = document.getElementById("color_preset");
@@ -390,13 +387,12 @@ function setupUIControls() {
     if (appliedMode === "sequence") {
       isSequenceRunning = !isSequenceRunning;
       isAnimating = false;
-    } else if (appliedMode === "left_rotate") {
-      isAnimating = !isAnimating; // Toggle spin for Left Rotate
+    } else if (
+      appliedMode === "left_rotate" ||
+      appliedMode === "right_rotate"
+    ) {
+      isAnimating = !isAnimating; // Toggle spin for Left OR Right Rotate
     } else if (appliedMode === "manual") {
-      // Manual mode doesn't have auto-animation, but allow toggle for consistency
-      isAnimating = !isAnimating;
-    } else if (appliedMode === "none") {
-      // If no mode is applied, allow simple rotation animation
       isAnimating = !isAnimating;
     }
     updatePlayPauseButton();
@@ -421,29 +417,13 @@ function setupUIControls() {
     updateSpeed(newSpeed);
   });
 
-  colorPicker1.addEventListener("input", function (e) {
-    primaryColor = hexToRgb(e.target.value);
-    presetSelect.value = "custom";
-    syncColorCircles();
-    makeLetter();
-  });
-
-  colorPicker2.addEventListener("input", function (e) {
-    secondaryColor = hexToRgb(e.target.value);
-    presetSelect.value = "custom";
-    syncColorCircles();
-    makeLetter();
-  });
-
-  presetSelect.addEventListener("change", function (e) {
-    if (e.target.value !== "custom") {
-      applyColorPreset(e.target.value);
-    }
-  });
-
-  playPauseButton.addEventListener("click", function () {
-    togglePlayPause();
-  });
+  if (scaleSlider) {
+    scaleSlider.addEventListener("input", function (e) {
+      textScale = parseFloat(e.target.value);
+      scaleValueDisplay.textContent = textScale.toFixed(1);
+      // We don't need to call makeLetter() because render() picks up the new size automatically
+    });
+  }
 
   rotationXSlider.addEventListener("input", function (e) {
     manualRotX = e.target.value;
@@ -469,6 +449,33 @@ function setupUIControls() {
     manualTransZ = e.target.value;
   });
 
+  if (applyRotationButton) {
+    applyRotationButton.addEventListener("click", function () {
+      var selected = rotationSelect.value;
+      isSequenceRunning = false; // Stop any running sequence
+      isAnimating = false;
+
+      if (selected === "manual_360") {
+        appliedMode = "manual";
+        isManualRotation = true;
+      } else if (selected === "left_rotate") {
+        appliedMode = "left_rotate";
+        isManualRotation = false;
+      } else if (selected === "right_rotate") {
+        appliedMode = "right_rotate";
+        isManualRotation = false;
+      } else {
+        appliedMode = "sequence";
+        isManualRotation = false;
+        sequenceKeyframes = assignmentKeyframes;
+
+        startSequence();
+        isSequenceRunning = false; // Pause immediately
+      }
+      updatePlayPauseButton();
+    });
+  }
+
   if (applyLightingButton) {
     applyLightingButton.addEventListener("click", function () {
       var selectedMode = lightingModeSelect
@@ -488,30 +495,29 @@ function setupUIControls() {
       }
     });
   }
+  colorPicker1.addEventListener("input", function (e) {
+    primaryColor = hexToRgb(e.target.value);
+    presetSelect.value = "custom";
+    syncColorCircles();
+    makeLetter();
+  });
 
-  if (applyRotationButton) {
-    applyRotationButton.addEventListener("click", function () {
-      var selected = rotationSelect.value;
-      isSequenceRunning = false; // Stop any running sequence
-      isAnimating = false; // Stop the auto-spin
+  colorPicker2.addEventListener("input", function (e) {
+    secondaryColor = hexToRgb(e.target.value);
+    presetSelect.value = "custom";
+    syncColorCircles();
+    makeLetter();
+  });
 
-      if (selected === "manual_360") {
-        appliedMode = "manual";
-        isManualRotation = true;
-      } else if (selected === "left_rotate") {
-        appliedMode = "left_rotate";
-        isManualRotation = false;
-      } else {
-        appliedMode = "sequence";
-        isManualRotation = false;
-        sequenceKeyframes = assignmentKeyframes;
+  presetSelect.addEventListener("change", function (e) {
+    if (e.target.value !== "custom") {
+      applyColorPreset(e.target.value);
+    }
+  });
 
-        startSequence();
-        isSequenceRunning = false; // Pause immediately
-      }
-      updatePlayPauseButton();
-    });
-  }
+  playPauseButton.addEventListener("click", function () {
+    togglePlayPause();
+  });
 
   // Initialize button state
   updatePlayPauseButton();
@@ -519,6 +525,7 @@ function setupUIControls() {
     animationAngle = 0;
     animationSpeed = 1.0;
     extrusionDepth = 0.1;
+    textScale = 0.7;
     primaryColor = [1.0, 0.0, 0.0, 1.0];
     secondaryColor = [0.0, 1.0, 0.0, 1.0];
     customText = "L";
@@ -543,6 +550,8 @@ function setupUIControls() {
     // Reset sliders
     extrusionSlider.value = extrusionDepth;
     speedSlider.value = animationSpeed;
+    scaleSlider.value = textScale;
+    scaleValueDisplay.textContent = textScale.toFixed(1);
     rotationXSlider.value = 0;
     rotationYSlider.value = 0;
     rotationZSlider.value = 0;
@@ -850,13 +859,17 @@ function render(now) {
   if (isSequenceRunning) {
     updateSequence(deltaSeconds);
     baseModelMatrix = buildModelMatrix(currentSequenceTransform);
-  } else if (
-    appliedMode === "left_rotate" ||
-    (appliedMode === "none" && isAnimating)
-  ) {
+  } else if (appliedMode === "left_rotate" || appliedMode === "right_rotate") {
     if (isAnimating) {
-      animationAngle += 50 * deltaSeconds * animationSpeed;
+      // 1. Determine direction (1 for Left, -1 for Right)
+      var direction = appliedMode === "right_rotate" ? -1 : 1;
+
+      // 2. Apply rotation with direction
+      animationAngle += direction * 50 * deltaSeconds * animationSpeed;
+
+      // 3. Handle wrap-around for both directions
       if (animationAngle >= 360) animationAngle -= 360;
+      if (animationAngle <= 0) animationAngle += 360;
     }
     baseModelMatrix = rotate(animationAngle, 0, 1, 0);
   } else if (appliedMode === "manual") {
