@@ -39,6 +39,7 @@
             value="LOVE"
             placeholder="Enter text"
           />
+          <p id="text_input_message" class="validation_message"></p>
         </div>
 
         <!-- slider row -->
@@ -246,14 +247,19 @@
       in vec4 vPosition;
       in vec4 vColor;
       in vec3 vNormal;
+
       out vec4 color;
+      out vec3 normal;
 
       // global variables
       uniform mat4 modelViewMatrix;
       uniform mat4 projectionMatrix;
+      uniform mat3 normalMatrix;
+
       void main() {
           gl_Position = projectionMatrix * modelViewMatrix * vPosition;
           color = vColor;
+          normal = normalMatrix * vNormal;
       }
     </script>
 
@@ -261,12 +267,21 @@
       #version 300 es
       precision mediump float;
       in vec4 color;
+      in vec3 normal;
       out vec4 fragColor;
 
+      uniform vec3 uLightDir;
       uniform float uLightingFactor;
 
       void main() {
-        fragColor = color * uLightingFactor;
+        vec3 N = normalize(normal);
+        vec3 L = normalize(uLightDir);
+
+        float diffuse = max(dot(N, L), 0.0);
+        float ambient = 0.2;
+        float finalLight = ambient + diffuse * uLightingFactor;
+
+        fragColor = color * finalLight;
       }
     </script>
 
@@ -394,6 +409,14 @@
 
       #text_input {
         max-width: 260px;
+      }
+
+      .validation_message {
+        display: none;
+        color: #b91c1c;
+        font-weight: 600;
+        font-size: 12px;
+        margin: -4px 0 0;
       }
 
       input[type="range"] {
