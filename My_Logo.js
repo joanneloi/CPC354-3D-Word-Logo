@@ -20,9 +20,12 @@ var animationSpeed = 1.0;
 var extrusionDepth = 0.1;
 var appliedMode = "none"; // "none", "manual", "sequence", "left_rotate"
 var isManualRotation = false; // The flag to switch modes
-var manualX = 0;
-var manualY = 0;
-var manualZ = 0;
+var manualRotX = 0;
+var manualRotY = 0;
+var manualRotZ = 0;
+var manualTransX = 0;
+var manualTransY = 0;
+var manualTransZ = 0;
 var primaryColor = [1.0, 0.0, 0.0, 1.0];
 var secondaryColor = [0.0, 1.0, 0.0, 1.0];
 var customText = "L"; // need change later
@@ -31,7 +34,7 @@ var lightingMode = "neutral";
 var lightingFactor = 1.0;
 var textScale = 0.7; // Scale factor to make text smaller
 
-// 1. The New Assignment Sequence
+// 1. Assignment Sequence TV Indent
 var assignmentKeyframes = [
   {
     // Step 1: Start Center (Hold briefly)
@@ -90,60 +93,7 @@ var assignmentKeyframes = [
   },
 ];
 
-// TV Ident Sequence
-var tvIdentKeyframes = [
-  {
-    name: "center",
-    duration: 0.6,
-    start: createTransform(0, [0, 0, 0], 1),
-    end: createTransform(0, [0, 0, 0], 1),
-  },
-  {
-    name: "rotate_right",
-    duration: 1.0,
-    start: createTransform(0, [0, 0, 0], 1),
-    end: createTransform(180, [0.25, 0, 0], 1),
-  },
-  {
-    name: "back_track_one",
-    duration: 0.8,
-    start: createTransform(180, [0.25, 0, 0], 1),
-    end: createTransform(180, [0.25, 0, -0.35], 1),
-  },
-  {
-    name: "rotate_left",
-    duration: 1.0,
-    start: createTransform(180, [0.25, 0, -0.35], 1),
-    end: createTransform(360, [-0.25, 0, -0.35], 1),
-  },
-  {
-    name: "back_track_two",
-    duration: 0.8,
-    start: createTransform(360, [-0.25, 0, -0.35], 1),
-    end: createTransform(360, [-0.25, 0, 0], 1),
-  },
-  {
-    name: "enlarge",
-    duration: 0.9,
-    start: createTransform(360, [-0.25, 0, 0], 1),
-    end: createTransform(360, [-0.1, 0, 0], 1.35),
-  },
-  {
-    name: "move_about",
-    duration: 1.4,
-    custom: true,
-    compute: function (p) {
-      var wx = -0.1 + 0.2 * Math.sin(p * Math.PI * 2);
-      var wy = 0.05 * Math.sin(p * Math.PI);
-      var wz = 0.12 * Math.cos(p * Math.PI * 2);
-      var r = 360 + 45 * p;
-      var s = 1.35 + 0.05 * Math.sin(p * Math.PI * 4);
-      return createTransform(r, [wx, wy, wz], s);
-    },
-  },
-];
-
-// 3. Set the default active sequence
+// 2. Set the default active sequence
 var sequenceKeyframes = assignmentKeyframes;
 var isSequenceRunning = false;
 var sequenceIndex = 0;
@@ -332,6 +282,9 @@ function setupUIControls() {
   var rotationXSlider = document.getElementById("rot_x");
   var rotationYSlider = document.getElementById("rot_y");
   var rotationZSlider = document.getElementById("rot_z");
+  var transXSlider = document.getElementById("trans_x");
+  var transYSlider = document.getElementById("trans_y");
+  var transZSlider = document.getElementById("trans_z");
 
   function syncColorCircles() {
     if (typeof window.refreshColorCircles === "function") {
@@ -493,15 +446,27 @@ function setupUIControls() {
   });
 
   rotationXSlider.addEventListener("input", function (e) {
-    manualX = e.target.value;
+    manualRotX = e.target.value;
   });
 
   rotationYSlider.addEventListener("input", function (e) {
-    manualY = e.target.value;
+    manualRotY = e.target.value;
   });
 
   rotationZSlider.addEventListener("input", function (e) {
-    manualZ = e.target.value;
+    manualRotZ = e.target.value;
+  });
+
+  transXSlider.addEventListener("input", function (e) {
+    manualTransX = e.target.value;
+  });
+
+  transYSlider.addEventListener("input", function (e) {
+    manualTransY = e.target.value;
+  });
+
+  transZSlider.addEventListener("input", function (e) {
+    manualTransZ = e.target.value;
   });
 
   if (applyLightingButton) {
@@ -539,11 +504,8 @@ function setupUIControls() {
       } else {
         appliedMode = "sequence";
         isManualRotation = false;
-        if (selected === "tv_ident_seq") {
-          sequenceKeyframes = tvIdentKeyframes;
-        } else {
-          sequenceKeyframes = assignmentKeyframes;
-        }
+        sequenceKeyframes = assignmentKeyframes;
+
         startSequence();
         isSequenceRunning = false; // Pause immediately
       }
@@ -568,9 +530,12 @@ function setupUIControls() {
     isAnimating = false;
     lightingMode = "neutral";
     lightingFactor = 1.0;
-    manualX = 0;
-    manualY = 0;
-    manualZ = 0;
+    manualRotX = 0;
+    manualRotY = 0;
+    manualRotZ = 0;
+    manualTransX = 0;
+    manualTransY = 0;
+    manualTransZ = 0;
 
     // Reset text input
     textInput.value = customText; // attention
@@ -581,6 +546,9 @@ function setupUIControls() {
     rotationXSlider.value = 0;
     rotationYSlider.value = 0;
     rotationZSlider.value = 0;
+    transXSlider.value = 0;
+    transYSlider.value = 0;
+    transZSlider.value = 0;
     updateExtrusionDepth(extrusionDepth);
     updateSpeed(animationSpeed);
     colorPicker1.value = "#ff0000";
@@ -892,9 +860,14 @@ function render(now) {
     }
     baseModelMatrix = rotate(animationAngle, 0, 1, 0);
   } else if (appliedMode === "manual") {
-    baseModelMatrix = mult(baseModelMatrix, rotate(manualX, 1, 0, 0));
-    baseModelMatrix = mult(baseModelMatrix, rotate(manualY, 0, 1, 0));
-    baseModelMatrix = mult(baseModelMatrix, rotate(manualZ, 0, 0, 1));
+    baseModelMatrix = mult(
+      baseModelMatrix,
+      translate(manualTransX, manualTransY, manualTransZ)
+    );
+
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualRotX, 1, 0, 0));
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualRotY, 0, 1, 0));
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualRotZ, 0, 0, 1));
   }
 
   // apply text scale
