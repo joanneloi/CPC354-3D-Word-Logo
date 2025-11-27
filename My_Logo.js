@@ -314,7 +314,7 @@ function setupUIControls() {
     if (!isValid) {
       customText = "";
       setValidationMessage(
-        "Please enter character valid character L, O, V, E"
+        "Please enter valid character L, O, V, E"
       );
       makeLetter();
       return;
