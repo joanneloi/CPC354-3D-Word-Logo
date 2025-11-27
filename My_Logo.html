@@ -29,8 +29,6 @@
 
       <!-- Control Panel -->
       <div id="control_panel">
-        <h2></h2>
-
         <!-- Text Input Control -->
         <div class="control_group">
           <label for="text_input"
@@ -130,16 +128,17 @@
           <div class="color_layout_row">
             <div class="color_picker_item">
                 <label for="color_picker">Primary</label>
-                <div class="color_circle" data-circle="primary"></div>
-                <input type="color" id="color_picker" value="#ff0000" />
+                <div class="color_circle" data-circle="primary">
+                  <input type="color" id="color_picker" value="#ff0000" />
+                </div>
             </div>
 
             <div class="color_picker_item">
                 <label for="color_picker_2">Secondary</label>
-                <div class="color_circle" data-circle="secondary"></div>
-                <input type="color" id="color_picker_2" value="#00ff00" />
+                <div class="color_circle" data-circle="secondary">
+                  <input type="color" id="color_picker_2" value="#00ff00" />
+                </div>
             </div>
-
 
             <div class="color_preset_row">
               <label for="color_preset">Palette:</label>
@@ -215,52 +214,65 @@
 
       body {
         margin: 0;
+        padding: 0;
         min-height: 100vh;
         font: 14px "Comic Sans MS", cursive, sans-serif;
         color: #0f172a;
-        background: #fff7ed url("orangeBackground.png") center/cover fixed
-          no-repeat;
-        display: flex;
-        flex-direction: column;
+        background: #fff7ed;
+        overflow: hidden;
       }
 
       #main_container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        padding: 16px;
-        margin: 16px auto;
-        width: min(1500px, 100%);
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
       }
 
       #gl_canvas {
-        flex: 1 1 760px;
-        min-width: 560px;
-        height: 1040px;
-        border: 4px solid rgba(251, 191, 36, 0.8);
-        border-radius: 14px;
-        background: radial-gradient(circle at top, #fffdf5, #fff1d6);
-        box-shadow: 0 12px 25px rgba(249, 115, 22, 0.2);
+        position: fixed;
+        top: 80px;
+        left: 0;
+        width: calc(100vw - 512px);
+        height: calc(100vh - 80px);
+        border: none;
+        border-radius: 0;
+        background: #fff7ed;
+        box-shadow: none;
+        display: block;
+        z-index: 1;
       }
 
       #control_panel {
-        flex: 0 0 420px;
-        min-width: 340px;
+        position: fixed;
+        top: 140px;
+        right: 16px;
+        width: 480px;
+        min-width: 380px;
+        max-height: calc(100vh - 160px);
+        height: auto;
         background: var(--panel);
-        border: 1px solid var(--orange-light);
+        border: 2px solid var(--orange-light);
         border-radius: 12px;
         padding: 16px;
-        max-height: calc(100vh - 115px);
         overflow-y: auto;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+        z-index: 1000;
       }
 
       #page_header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
         background: linear-gradient(120deg, #f78c1f, #ffcc66);
         color: #fffdf5;
         text-align: center;
         padding: 18px 24px;
         box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);
+        z-index: 999;
       }
 
       .control_group {
@@ -320,6 +332,20 @@
         background: #fed7aa;
         accent-color: var(--orange);
       }
+      
+      .slider_value {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 50px;
+        padding: 4px 10px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 6px;
+        color: var(--orange-dark);
+        font-weight: 600;
+        text-align: center;
+      }
 
       .button_group {
         display: flex;
@@ -356,16 +382,29 @@
         color: #a94407;
       }
 
-      .play_state {
-        background: #22c55e;
-        border-color: #15803d;
-        color: #fff;
+      /* Play/Pause button - always green or red, never orange */
+      #play_pause_button.play_state {
+        background: #22c55e !important;
+        border: 2px solid #15803d !important;
+        color: #fff !important;
       }
 
-      .pause_state {
-        background: #ef4444;
-        border-color: #b91c1c;
-        color: #fff;
+      #play_pause_button.play_state:hover {
+        background: #16a34a !important;
+        border-color: #15803d !important;
+        color: #fff !important;
+      }
+
+      #play_pause_button.pause_state {
+        background: #ef4444 !important;
+        border: 2px solid #b91c1c !important;
+        color: #fff !important;
+      }
+
+      #play_pause_button.pause_state:hover {
+        background: #dc2626 !important;
+        border-color: #b91c1c !important;
+        color: #fff !important;
       }
 
       .color_controls_group {
@@ -433,14 +472,28 @@
 
       @media (max-width: 1024px) {
         #gl_canvas {
-          min-width: 0;
-          width: 100%;
-          height: 60vh;
+          width: 100vw;
+          height: calc(100vh - 80px - 50vh);
+          top: 80px;
+          left: 0;
         }
 
         #control_panel {
-          flex: 1 1 100%;
-          max-height: none;
+          width: calc(100% - 32px);
+          max-width: 480px;
+          right: 16px;
+          left: auto;
+          transform: none;
+          top: auto;
+          bottom: 16px;
+          max-height: 50vh;
+          height: auto;
+          border: 2px solid var(--orange-light);
+          border-radius: 12px;
+        }
+
+        #page_header {
+          right: 0;
         }
 
         .double_control_row {

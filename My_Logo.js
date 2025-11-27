@@ -28,7 +28,6 @@ var lightingMode = "neutral";
 var lightingFactor = 1.0;
 var textScale = 0.7; // Scale factor to make text smaller
 
- 
 // 1. The New Assignment Sequence
 var assignmentKeyframes = [
   {
@@ -642,8 +641,6 @@ function setupUIControls() {
 }
 
 //----------------new 3D letter generation code----------------//
-
-
 function makeLetter() {
     object = []; // reset all objects
 
