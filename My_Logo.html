@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <title>My Logo</title>
 
-    <!-- link to the common scripts 连接到公共脚本 -->
+    <!-- link to the common scripts -->
     <script src="../Common/webgl-utils.js"></script>
     <script src="../Common/initShaders.js"></script>
     <script src="../Common/MVnew.js"></script>
     <script src="My_Logo.js"></script>
   </head>
   <body>
-    <!-- Header -->
+    <!-- header -->
     <header id="page_header">
       <div class="header_content">
         <h1>3D Word Logo</h1>
@@ -27,15 +27,11 @@
       <!-- size of the canvas-->
       <canvas id="gl_canvas" width="720" height="820"></canvas>
 
-      <!-- Control Panel -->
+      <!-- control panel -->
       <div id="control_panel">
-        <h2></h2>
-
-        <!-- Text Input Control -->
+        <!-- text input control -->
         <div class="control_group">
-          <label for="text_input"
-            >Custom Word (ONLY B, C, X, M, R) MAX 4:
-          </label>
+          <label for="text_input">Custom Word (ONLY L, O, V, E): </label>
           <input
             type="text"
             id="text_input"
@@ -45,7 +41,7 @@
           />
         </div>
 
-        <!-- Slider Row -->
+        <!-- slider row -->
         <div class="double_control_row">
           <div class="control_group">
             <label>Extrusion Depth:</label>
@@ -92,7 +88,7 @@
           </div>
         </div>
 
-        <!-- Rotation Control Group -->
+        <!-- rotation control group -->
         <div class="control_group rotation_control_group">
           <label>Rotation Sequence</label>
           <div class="inline_control_row">
@@ -108,7 +104,7 @@
           </div>
         </div>
 
-        <!-- Lighting Control Group -->
+        <!-- lighting control group -->
         <div class="control_group lighting_control_group">
           <label>Lighting</label>
           <div class="inline_control_row">
@@ -123,19 +119,23 @@
           </div>
         </div>
 
-        <!-- Color Controls Group -->
+        <!-- color controls group -->
         <div class="control_group color_controls_group">
           <label class="color_group_label">Color Controls</label>
 
           <div class="color_layout_row">
             <div class="color_picker_item">
               <label for="color_picker">Primary</label>
-              <input type="color" id="color_picker" value="#ff0000" />
+              <div class="color_circle" data-circle="primary">
+                <input type="color" id="color_picker" value="#ff0000" />
+              </div>
             </div>
 
             <div class="color_picker_item">
               <label for="color_picker_2">Secondary</label>
-              <input type="color" id="color_picker_2" value="#00ff00" />
+              <div class="color_circle" data-circle="secondary">
+                <input type="color" id="color_picker_2" value="#00ff00" />
+              </div>
             </div>
 
             <div class="color_preset_row">
@@ -152,7 +152,7 @@
           </div>
         </div>
 
-        <!-- Buttons -->
+        <!-- buttons -->
         <div class="button_group">
           <button id="play_pause_button" class="play_pause_button">
             Start
@@ -160,7 +160,7 @@
           <button id="reset_button">Reset</button>
         </div>
 
-        <!-- Info Display -->
+        <!-- info -->
         <div class="info_group">
           <p>Press <kbd>Space</kbd> to Start/Stop</p>
           <p>Press <kbd>R</kbd> to Reset</p>
@@ -172,6 +172,7 @@
       #version 300 es
       in vec4 vPosition;
       in vec4 vColor;
+      in vec3 vNormal;
       out vec4 color;
 
       // global variables
@@ -189,12 +190,14 @@
       in vec4 color;
       out vec4 fragColor;
 
+      uniform float uLightingFactor;
+
       void main() {
-          fragColor = color;
+        fragColor = color * uLightingFactor;
       }
     </script>
 
-    <!-- Inline CSS Styles -->
+    <!-- inline css -->
     <style>
       :root {
         --orange: #f97316;
@@ -209,52 +212,65 @@
 
       body {
         margin: 0;
+        padding: 0;
         min-height: 100vh;
         font: 14px "Comic Sans MS", cursive, sans-serif;
         color: #0f172a;
-        background: #fff7ed url("orangeBackground.png") center/cover fixed
-          no-repeat;
-        display: flex;
-        flex-direction: column;
+        background: #fff7ed;
+        overflow: hidden;
       }
 
       #main_container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        padding: 16px;
-        margin: 16px auto;
-        width: min(1500px, 100%);
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
       }
 
       #gl_canvas {
-        flex: 1 1 760px;
-        min-width: 560px;
-        height: 1040px;
-        border: 4px solid rgba(251, 191, 36, 0.8);
-        border-radius: 14px;
-        background: radial-gradient(circle at top, #fffdf5, #fff1d6);
-        box-shadow: 0 12px 25px rgba(249, 115, 22, 0.2);
+        position: fixed;
+        top: 80px;
+        left: 0;
+        width: calc(100vw - 512px);
+        height: calc(100vh - 80px);
+        border: none;
+        border-radius: 0;
+        background: #fff7ed;
+        box-shadow: none;
+        display: block;
+        z-index: 1;
       }
 
       #control_panel {
-        flex: 0 0 420px;
-        min-width: 340px;
+        position: fixed;
+        top: 140px;
+        right: 16px;
+        width: 480px;
+        min-width: 380px;
+        max-height: calc(100vh - 160px);
+        height: auto;
         background: var(--panel);
-        border: 1px solid var(--orange-light);
+        border: 2px solid var(--orange-light);
         border-radius: 12px;
         padding: 16px;
-        max-height: calc(100vh - 115px);
         overflow-y: auto;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+        z-index: 1000;
       }
 
       #page_header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
         background: linear-gradient(120deg, #f78c1f, #ffcc66);
         color: #fffdf5;
         text-align: center;
         padding: 18px 24px;
         box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);
+        z-index: 999;
       }
 
       .control_group {
@@ -315,6 +331,20 @@
         accent-color: var(--orange);
       }
 
+      .slider_value {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 50px;
+        padding: 4px 10px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 6px;
+        color: var(--orange-dark);
+        font-weight: 600;
+        text-align: center;
+      }
+
       .button_group {
         display: flex;
         flex-wrap: wrap;
@@ -350,16 +380,29 @@
         color: #a94407;
       }
 
-      .play_state {
-        background: #22c55e;
-        border-color: #15803d;
-        color: #fff;
+      /* Play/Pause button - always green or red, never orange */
+      #play_pause_button.play_state {
+        background: #22c55e !important;
+        border: 2px solid #15803d !important;
+        color: #fff !important;
       }
 
-      .pause_state {
-        background: #ef4444;
-        border-color: #b91c1c;
-        color: #fff;
+      #play_pause_button.play_state:hover {
+        background: #16a34a !important;
+        border-color: #15803d !important;
+        color: #fff !important;
+      }
+
+      #play_pause_button.pause_state {
+        background: #ef4444 !important;
+        border: 2px solid #b91c1c !important;
+        color: #fff !important;
+      }
+
+      #play_pause_button.pause_state:hover {
+        background: #dc2626 !important;
+        border-color: #b91c1c !important;
+        color: #fff !important;
       }
 
       .color_controls_group {
@@ -387,6 +430,7 @@
         position: relative;
         overflow: hidden;
         background: #fff;
+        transition: background 0.3s ease;
       }
 
       .color_circle input[type="color"] {
@@ -426,14 +470,28 @@
 
       @media (max-width: 1024px) {
         #gl_canvas {
-          min-width: 0;
-          width: 100%;
-          height: 60vh;
+          width: 100vw;
+          height: calc(100vh - 80px - 50vh);
+          top: 80px;
+          left: 0;
         }
 
         #control_panel {
-          flex: 1 1 100%;
-          max-height: none;
+          width: calc(100% - 32px);
+          max-width: 480px;
+          right: 16px;
+          left: auto;
+          transform: none;
+          top: auto;
+          bottom: 16px;
+          max-height: 50vh;
+          height: auto;
+          border: 2px solid var(--orange-light);
+          border-radius: 12px;
+        }
+
+        #page_header {
+          right: 0;
         }
 
         .double_control_row {
@@ -447,44 +505,5 @@
         }
       }
     </style>
-
-    <script>
-      (function () {
-        const bindings = [
-          {
-            inputId: "color_picker",
-            circleSelector: '[data-circle="primary"]',
-          },
-          {
-            inputId: "color_picker_2",
-            circleSelector: '[data-circle="secondary"]',
-          },
-        ];
-
-        function syncCircle(inputId, circleSelector) {
-          const input = document.getElementById(inputId);
-          const circle = document.querySelector(circleSelector);
-          if (input && circle) {
-            circle.style.background = input.value;
-          }
-        }
-
-        window.refreshColorCircles = function () {
-          bindings.forEach(({ inputId, circleSelector }) =>
-            syncCircle(inputId, circleSelector)
-          );
-        };
-
-        bindings.forEach(({ inputId, circleSelector }) => {
-          syncCircle(inputId, circleSelector);
-          const input = document.getElementById(inputId);
-          if (input) {
-            input.addEventListener("input", () =>
-              syncCircle(inputId, circleSelector)
-            );
-          }
-        });
-      })();
-    </script>
   </body>
 </html>

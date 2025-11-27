@@ -1,0 +1,252 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>3D Torus (O) - WebGL2</title>
+  <style>
+    body { margin: 12px; font-family: system-ui, sans-serif; }
+    canvas { border: 1px solid #ccc; }
+  </style>
+  <!-- Keep your existing Common helpers; they must load before the script below -->
+  <script src="../Common/webgl-utils.js"></script>
+  <script src="../Common/initShaders.js"></script>
+  <script src="../Common/MVnew.js"></script>
+</head>
+
+<body>
+  <h3>3D Torus (animated, Phong-like lighting)</h3>
+  <canvas id="gl-canvas" width="700" height="500"></canvas>
+
+  <!-- Vertex shader -->
+  <script id="vertex-shader" type="x-shader/x-vertex">
+  #version 300 es
+  precision mediump float;
+
+  in vec3 aPosition;
+  in vec3 aNormal;
+
+  uniform mat4 uModelViewMatrix;
+  uniform mat4 uProjectionMatrix;
+  uniform mat3 uNormalMatrix;
+
+  out vec3 vNormal;
+  out vec3 vPosition; // in eye space
+
+  void main() {
+      vec4 posEye = uModelViewMatrix * vec4(aPosition, 1.0);
+      vPosition = posEye.xyz;
+      vNormal = normalize(uNormalMatrix * aNormal);
+      gl_Position = uProjectionMatrix * posEye;
+  }
+  </script>
+
+  <!-- Fragment shader -->
+  <script id="fragment-shader" type="x-shader/x-fragment">
+  #version 300 es
+  precision mediump float;
+
+  in vec3 vNormal;
+  in vec3 vPosition;
+
+  uniform vec3 uLightPosition; // eye-space
+  uniform vec4 uAmbient;
+  uniform vec4 uDiffuse;
+  uniform vec4 uSpecular;
+  uniform float uShininess;
+
+  out vec4 fragColor;
+
+  void main() {
+      vec3 N = normalize(vNormal);
+      vec3 L = normalize(uLightPosition - vPosition);
+      vec3 V = normalize(-vPosition); // view vector (eye at origin in eye-space)
+      vec3 R = reflect(-L, N);
+
+      float lambert = max(dot(N, L), 0.0);
+      vec4 ambient = uAmbient;
+      vec4 diffuse = uDiffuse * lambert;
+      float spec = 0.0;
+      if (lambert > 0.0) {
+          spec = pow(max(dot(R, V), 0.0), uShininess);
+      }
+      vec4 specular = uSpecular * spec;
+
+      fragColor = ambient + diffuse + specular;
+      fragColor.a = 1.0;
+  }
+  </script>
+
+  <script>
+  'use strict';
+
+  // Globals
+  let canvas, gl, program;
+  let torusVertexBuffer, torusNormalBuffer, torusIndexBuffer;
+  let numIndices = 0;
+
+  let uModelViewMatrixLoc, uProjMatrixLoc, uNormalMatrixLoc;
+  let uLightPositionLoc, uAmbientLoc, uDiffuseLoc, uSpecularLoc, uShininessLoc;
+  let aPositionLoc, aNormalLoc;
+
+  // animation
+  let angle = 0;
+
+  window.onload = function () {
+      canvas = document.getElementById('gl-canvas');
+      gl = canvas.getContext('webgl2');
+      if (!gl) { alert('WebGL2 not available'); return; }
+
+      // compile/link shader program
+      program = initShaders(gl, 'vertex-shader', 'fragment-shader');
+      gl.useProgram(program);
+
+      // get attribute/uniform locations
+      aPositionLoc = gl.getAttribLocation(program, 'aPosition');
+      aNormalLoc = gl.getAttribLocation(program, 'aNormal');
+
+      uModelViewMatrixLoc = gl.getUniformLocation(program, 'uModelViewMatrix');
+      uProjMatrixLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
+      uNormalMatrixLoc = gl.getUniformLocation(program, 'uNormalMatrix');
+
+      uLightPositionLoc = gl.getUniformLocation(program, 'uLightPosition');
+      uAmbientLoc = gl.getUniformLocation(program, 'uAmbient');
+      uDiffuseLoc = gl.getUniformLocation(program, 'uDiffuse');
+      uSpecularLoc = gl.getUniformLocation(program, 'uSpecular');
+      uShininessLoc = gl.getUniformLocation(program, 'uShininess');
+
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.96, 0.96, 0.98, 1.0);
+      gl.enable(gl.DEPTH_TEST);
+
+      // create torus geometry
+      makeTorus(0.9, 0.35, 64, 32); // R, r, segmentsR, segmentsT
+
+      // set up projection (perspective)
+      const aspect = canvas.width / canvas.height;
+      const proj = perspective(45.0, aspect, 0.1, 100.0);
+      gl.uniformMatrix4fv(uProjMatrixLoc, false, flatten(proj));
+
+      // lighting params (in eye space after modelview applied; we'll place light near camera)
+      // We'll set actual eye-space light position inside render after computing modelView.
+
+      // material
+      gl.uniform4f(uAmbientLoc, 0.12, 0.12, 0.12, 1.0);
+      gl.uniform4f(uDiffuseLoc, 0.9, 0.3, 0.3, 1.0); // red-ish torus
+      gl.uniform4f(uSpecularLoc, 1.0, 1.0, 1.0, 1.0);
+      gl.uniform1f(uShininessLoc, 32.0);
+
+      // enable vertex arrays (we'll bind buffers in render)
+      gl.enableVertexAttribArray(aPositionLoc);
+      gl.enableVertexAttribArray(aNormalLoc);
+
+      // start render loop
+      requestAnimationFrame(render);
+  };
+
+  // Create torus geometry (positions, normals, indices) and upload to GPU
+  function makeTorus(R, r, segmentsR, segmentsT) {
+      const positions = [];
+      const normals = [];
+      const indices = [];
+
+      for (let i = 0; i <= segmentsR; ++i) {
+          const u = i / segmentsR * 2.0 * Math.PI;
+          const cu = Math.cos(u), su = Math.sin(u);
+
+          for (let j = 0; j <= segmentsT; ++j) {
+              const v = j / segmentsT * 2.0 * Math.PI;
+              const cv = Math.cos(v), sv = Math.sin(v);
+
+              // position
+              const x = (R + r * cv) * cu;
+              const y = (R + r * cv) * su;
+              const z = r * sv;
+              positions.push(x, y, z);
+
+              // normal (from torus param eq): compute vector from center of tube to surface
+              const nx = cv * cu;
+              const ny = cv * su;
+              const nz = sv;
+              // normalize normal (should already be unit if R/r consistency OK, but we normalize)
+              const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+              normals.push(nx/len, ny/len, nz/len);
+          }
+      }
+
+      // build indices (two triangles per quad)
+      const vertsPerRow = segmentsT + 1;
+      for (let i = 0; i < segmentsR; ++i) {
+          for (let j = 0; j < segmentsT; ++j) {
+              const a = i * vertsPerRow + j;
+              const b = (i + 1) * vertsPerRow + j;
+              const c = (i + 1) * vertsPerRow + (j + 1);
+              const d = i * vertsPerRow + (j + 1);
+
+              // triangle a,b,d and b,c,d (consistent winding)
+              indices.push(a, b, d);
+              indices.push(b, c, d);
+          }
+      }
+
+      numIndices = indices.length;
+
+      // upload position buffer
+      torusVertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, torusVertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+      // upload normal buffer
+      torusNormalBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, torusNormalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+      // upload index buffer
+      torusIndexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, torusIndexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+  }
+
+  function render(now) {
+      // animate
+      angle += 0.5; // degrees per frame
+      const rad = angle * Math.PI / 180.0;
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // camera (eye) and model transforms
+      const eye = vec3(0.0, 0.0, 3.5);
+      const at = vec3(0.0, 0.0, 0.0);
+      const up = vec3(0.0, 1.0, 0.0);
+
+      // model rotation + camera
+      const view = lookAt(eye, at, up);
+      const model = mult( rotate(rad, [0.0, 1.0, 0.0]), rotate(rad*0.4, [1.0, 0.0, 0.0]) );
+      const modelView = mult(view, model);
+
+      // normal matrix: transpose(inverse(upper-left 3x3 of modelView))
+      const normalMatrix = inverse(mat3(modelView));
+      const normalMatrixT = transpose(normalMatrix);
+
+      // send matrices
+      gl.uniformMatrix4fv(uModelViewMatrixLoc, false, flatten(modelView));
+      gl.uniformMatrix3fv(uNormalMatrixLoc, false, flatten(normalMatrixT));
+
+      // light position in eye space (we put it slightly above-right of camera)
+      const lightPosEye = vec3(1.5, 2.0, 2.0);
+      gl.uniform3fv(uLightPositionLoc, flatten(lightPosEye));
+
+      // bind attributes and draw
+      gl.bindBuffer(gl.ARRAY_BUFFER, torusVertexBuffer);
+      gl.vertexAttribPointer(aPositionLoc, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, torusNormalBuffer);
+      gl.vertexAttribPointer(aNormalLoc, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, torusIndexBuffer);
+      gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 0);
+
+      requestAnimationFrame(render);
+  }
+  </script>
+</body>
+</html>

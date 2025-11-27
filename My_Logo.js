@@ -3,16 +3,22 @@
 var gl, program, canvas;
 var points = [];
 var colors = [];
+var object = [];
 
-var modelViewMatrix, projectionMatrix;
-var modelViewMatrixLoc, projectionMatrixLoc;
+var modelViewMatrix, projectionMatrix, normalMatrix, uLightingFactor;
+var modelViewMatrixLoc,
+  projectionMatrixLoc,
+  normalMatrixLoc,
+  uLightingFactorLoc;
+
+var vPosition, vColor, vNormal;
 
 // Animation and control variables
 var animationAngle = 0;
 var isAnimating = false; //default pause
 var animationSpeed = 1.0;
 var extrusionDepth = 0.1;
-var appliedMode = "none"; // "none", "manual", "sequence, left_rotate"
+var appliedMode = "none"; // "none", "manual", "sequence", "left_rotate"
 var isManualRotation = false; // The flag to switch modes
 var manualX = 0;
 var manualY = 0;
@@ -23,6 +29,7 @@ var customText = "L"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
+var textScale = 0.7; // Scale factor to make text smaller
 
 // 1. The New Assignment Sequence
 var assignmentKeyframes = [
@@ -145,39 +152,34 @@ var currentSequenceTransform = createTransform(0, [0.0, 0.0, 0.0], 1.0);
 var lastFrameTime = 0;
 
 window.onload = function init() {
-  getUIElement();
   configWebGL();
-  makeL();
+  makeLetter();
   setupUIControls();
   render();
 };
 
-function getUIElement() {
-  canvas = document.getElementById("gl_canvas");
-}
-
-// Configure WebGL Settings
+// configure webGL
 function configWebGL() {
+  canvas = document.getElementById("gl_canvas");
   gl = canvas.getContext("webgl2");
   if (!gl) {
     alert("WebGL 2.0 isn't available");
   }
-
-  // Viewport and clear color
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(1.0, 1.0, 1.0, 1.0);
-  gl.enable(gl.DEPTH_TEST);
-
   // Compile shaders
   program = initShaders(gl, "vertex_shader", "fragment_shader");
   gl.useProgram(program);
 
+  vPosition = gl.getAttribLocation(program, "vPosition");
+  vColor = gl.getAttribLocation(program, "vColor");
+  vNormal = gl.getAttribLocation(program, "vNormal");
+
   // Get uniform locations
   modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
   projectionMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
+  normalMatrixLoc = gl.getUniformLocation(program, "normalMatrix");
+  uLightingFactorLoc = gl.getUniformLocation(program, "uLightingFactor");
 
   // Set up the projection matrix
-  projectionMatrix = perspective(45.0, targetAspectRatio, 0.1, 100.0);
   resizeCanvasMaintainingAspect();
 }
 
@@ -186,26 +188,25 @@ function resizeCanvasMaintainingAspect() {
     return;
   }
 
-  var maxWidth = Math.min(window.innerWidth - 80, 1200);
-  var maxHeight = Math.min(window.innerHeight - 115, 800);
-  var width = maxWidth;
-  var height = width / targetAspectRatio;
+  // Account for header (80px top) and control panel (480px + 32px spacing right)
+  var headerHeight = 80;
+  var controlPanelWidth = 512; // 480px panel + 32px spacing
+  var width = window.innerWidth - controlPanelWidth;
+  var height = window.innerHeight - headerHeight;
 
-  if (height > maxHeight) {
-    height = maxHeight;
-    width = height * targetAspectRatio;
-  }
-
-  width = Math.max(320, width);
-  height = width / targetAspectRatio;
+  // Calculate aspect ratio based on available space
+  var aspectRatio = width / height;
 
   canvas.width = width;
   canvas.height = height;
   canvas.style.width = width + "px";
   canvas.style.height = height + "px";
 
+  // Viewport and clear color (light orange background)
   gl.viewport(0, 0, canvas.width, canvas.height);
-  projectionMatrix = perspective(45.0, targetAspectRatio, 0.1, 100.0);
+  gl.clearColor(1.0, 0.968, 0.929, 1.0); // #fff7ed light orange
+  gl.enable(gl.DEPTH_TEST);
+  projectionMatrix = perspective(45.0, aspectRatio, 0.1, 100.0);
 }
 
 function createTransform(rotation, position, scale) {
@@ -283,7 +284,6 @@ function updateSequence(deltaSeconds) {
 
   // Calculate Transform
   var calcProgress = Math.min(progress, 1.0);
-
   if (currentStage.custom && typeof currentStage.compute === "function") {
     currentSequenceTransform = currentStage.compute(calcProgress);
   } else {
@@ -308,206 +308,13 @@ function updateSequence(deltaSeconds) {
   }
 }
 
-function render(now) {
-  if (typeof now === "undefined") {
-    now = performance.now();
-  }
-  var deltaSeconds = lastFrameTime ? (now - lastFrameTime) / 1000.0 : 0;
-  lastFrameTime = now;
-
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  modelViewMatrix = lookAt(
-    vec3(0.0, 0.0, 2.0),
-    vec3(0.0, 0.0, 0.0),
-    vec3(0.0, 1.0, 0.0)
-  );
-
-  var modelMatrix = mat4(); // Start with Identity (No Rotation)
-
-  // CASE 1: SEQUENCE ANIMATION
-  if (isSequenceRunning) {
-    updateSequence(deltaSeconds);
-    modelMatrix = buildModelMatrix(currentSequenceTransform);
-  }
-
-  // CASE 2: LEFT ROTATE MODE
-  else if (appliedMode === "left_rotate") {
-    if (isAnimating) {
-      animationAngle += 50.0 * deltaSeconds * animationSpeed;
-      if (animationAngle >= 360) animationAngle -= 360;
-    }
-    modelMatrix = rotate(animationAngle, 0, 1, 0);
-  }
-
-  // CASE 3: MANUAL CONTROL
-  else if (appliedMode === "manual") {
-    modelMatrix = mult(modelMatrix, rotate(manualX, 1, 0, 0));
-    modelMatrix = mult(modelMatrix, rotate(manualY, 0, 1, 0));
-    modelMatrix = mult(modelMatrix, rotate(manualZ, 0, 0, 1));
-  }
-
-  // CASE 4: NONE (Default)
-
-  modelViewMatrix = mult(modelViewMatrix, modelMatrix);
-
-  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-  gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
-
-  gl.drawArrays(gl.TRIANGLES, 0, points.length);
-
-  requestAnimationFrame(render);
-}
-
-function makeL() {
-  points = [];
-  colors = [];
-
-  // Front face vertices
-  var frontVertices1 = [
-    vec4(-0.4, -0.5, extrusionDepth, 1.0),
-    vec4(-0.2, -0.5, extrusionDepth, 1.0),
-    vec4(-0.2, 0.5, extrusionDepth, 1.0),
-    vec4(-0.4, 0.5, extrusionDepth, 1.0),
-  ];
-
-  var frontVertices2 = [
-    vec4(-0.4, -0.5, extrusionDepth, 1.0),
-    vec4(0.2, -0.5, extrusionDepth, 1.0),
-    vec4(0.2, -0.25, extrusionDepth, 1.0),
-    vec4(-0.4, -0.25, extrusionDepth, 1.0),
-  ];
-
-  // Back face vertices
-  var backVertices1 = [
-    vec4(-0.4, -0.5, -extrusionDepth, 1.0),
-    vec4(-0.2, -0.5, -extrusionDepth, 1.0),
-    vec4(-0.2, 0.5, -extrusionDepth, 1.0),
-    vec4(-0.4, 0.5, -extrusionDepth, 1.0),
-  ];
-
-  var backVertices2 = [
-    vec4(-0.4, -0.5, -extrusionDepth, 1.0),
-    vec4(0.2, -0.5, -extrusionDepth, 1.0),
-    vec4(0.2, -0.25, -extrusionDepth, 1.0),
-    vec4(-0.4, -0.25, -extrusionDepth, 1.0),
-  ];
-
-  function applyLighting(colorArr) {
-    var r = Math.min(Math.max(colorArr[0] * lightingFactor, 0.0), 1.0);
-    var g = Math.min(Math.max(colorArr[1] * lightingFactor, 0.0), 1.0);
-    var b = Math.min(Math.max(colorArr[2] * lightingFactor, 0.0), 1.0);
-    return vec4(r, g, b, colorArr[3]);
-  }
-
-  var primaryColorVec = applyLighting(primaryColor);
-  var secondaryColorVec = applyLighting(secondaryColor);
-
-  function addQuad(v1, v2, v3, v4, color) {
-    points.push(v1, v2, v3);
-    colors.push(color, color, color);
-    points.push(v1, v3, v4);
-    colors.push(color, color, color);
-  }
-
-  function addSideFaces(
-    frontV1,
-    frontV2,
-    frontV3,
-    frontV4,
-    backV1,
-    backV2,
-    backV3,
-    backV4,
-    color
-  ) {
-    addQuad(frontV1, frontV2, backV2, backV1, color);
-    addQuad(frontV2, frontV3, backV3, backV2, color);
-    addQuad(frontV3, frontV4, backV4, backV3, color);
-    addQuad(frontV4, frontV1, backV1, backV4, color);
-  }
-
-  // Front faces
-  addQuad(
-    frontVertices1[0],
-    frontVertices1[1],
-    frontVertices1[2],
-    frontVertices1[3],
-    primaryColorVec
-  );
-  addQuad(
-    frontVertices2[0],
-    frontVertices2[1],
-    frontVertices2[2],
-    frontVertices2[3],
-    primaryColorVec
-  );
-
-  // Back faces
-  addQuad(
-    backVertices1[3],
-    backVertices1[2],
-    backVertices1[1],
-    backVertices1[0],
-    secondaryColorVec
-  );
-  addQuad(
-    backVertices2[3],
-    backVertices2[2],
-    backVertices2[1],
-    backVertices2[0],
-    secondaryColorVec
-  );
-
-  // Side faces
-  var sideColor = vec4(
-    (primaryColor[0] + secondaryColor[0]) / 2,
-    (primaryColor[1] + secondaryColor[1]) / 2,
-    (primaryColor[2] + secondaryColor[2]) / 2,
-    1.0
-  );
-  addSideFaces(
-    frontVertices1[0],
-    frontVertices1[1],
-    frontVertices1[2],
-    frontVertices1[3],
-    backVertices1[0],
-    backVertices1[1],
-    backVertices1[2],
-    backVertices1[3],
-    sideColor
-  );
-  addSideFaces(
-    frontVertices2[0],
-    frontVertices2[1],
-    frontVertices2[2],
-    frontVertices2[3],
-    backVertices2[0],
-    backVertices2[1],
-    backVertices2[2],
-    backVertices2[3],
-    sideColor
-  );
-
-  // === Create buffers ===
-  var posBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(points), gl.STATIC_DRAW);
-  var vPosition = gl.getAttribLocation(program, "vPosition");
-  gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vPosition);
-
-  var colorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
-  var vColor = gl.getAttribLocation(program, "vColor");
-  gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vColor);
+function offsetVertex(vertex, xOffset) {
+  return vec4(vertex[0] + xOffset, vertex[1], vertex[2], vertex[3]);
 }
 
 // UI Control Functions
 function setupUIControls() {
-  // Get UI elements
+  // get UI elements
   var textInput = document.getElementById("text_input"); //attention
   var extrusionSlider = document.getElementById("extrusion_slider");
   var speedSlider = document.getElementById("speed_slider");
@@ -526,17 +333,23 @@ function setupUIControls() {
   var rotationYSlider = document.getElementById("rot_y");
   var rotationZSlider = document.getElementById("rot_z");
 
-  // Function to update extrusion depth display and enforce limits
+  function syncColorCircles() {
+    if (typeof window.refreshColorCircles === "function") {
+      window.refreshColorCircles();
+    }
+  }
+
+  // update extrusion depth,enforce limits
   function updateExtrusionDepth(newDepth) {
     extrusionDepth = Math.max(0.0, Math.min(0.5, newDepth));
     extrusionValueDisplay.textContent = extrusionDepth.toFixed(2);
     if (extrusionSlider) {
       extrusionSlider.value = extrusionDepth;
     }
-    makeL();
+    makeLetter();
   }
 
-  // Function to update speed display and enforce limits
+  // update speed,enforce limits
   function updateSpeed(newSpeed) {
     animationSpeed = Math.max(0.1, Math.min(5.0, newSpeed));
     speedValueDisplay.textContent = animationSpeed.toFixed(1);
@@ -545,7 +358,7 @@ function setupUIControls() {
     }
   }
 
-  // Helper functions
+  // helper functions
   function hexToRgb(hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
@@ -578,22 +391,18 @@ function setupUIControls() {
   function applyColorPreset(preset) {
     switch (preset) {
       case "sunset_glow":
-        // Warm, cinema-style colors
         primaryColor = [1.0, 0.5, 0.2, 1.0]; // sunset orange
         secondaryColor = [0.9, 0.2, 0.4, 1.0]; // rosy pink
         break;
       case "ocean_wave":
-        // Comforting blue-green gradient
         primaryColor = [0.0, 0.6, 0.9, 1.0]; // ocean blue
         secondaryColor = [0.0, 0.85, 0.7, 1.0]; // turquoise
         break;
       case "galaxy_mix":
-        // Cosmic neon look
         primaryColor = [0.4, 0.0, 0.6, 1.0]; // violet
         secondaryColor = [0.0, 0.8, 1.0, 1.0]; // neon cyan
         break;
       case "candy_pastel":
-        // Soft, pretty pastel tones
         primaryColor = [1.0, 0.75, 0.85, 1.0]; // pink pastel
         secondaryColor = [0.7, 0.9, 1.0, 1.0]; // blue pastel
         break;
@@ -604,7 +413,8 @@ function setupUIControls() {
     }
     colorPicker1.value = rgbToHex(primaryColor);
     colorPicker2.value = rgbToHex(secondaryColor);
-    makeL();
+    syncColorCircles();
+    makeLetter();
   }
 
   function updatePlayPauseButton() {
@@ -622,11 +432,28 @@ function setupUIControls() {
     }
   }
 
+  // Unified function to toggle play/pause - used by both button and keyboard
+  function togglePlayPause() {
+    if (appliedMode === "sequence") {
+      isSequenceRunning = !isSequenceRunning;
+      isAnimating = false;
+    } else if (appliedMode === "left_rotate") {
+      isAnimating = !isAnimating; // Toggle spin for Left Rotate
+    } else if (appliedMode === "manual") {
+      // Manual mode doesn't have auto-animation, but allow toggle for consistency
+      isAnimating = !isAnimating;
+    } else if (appliedMode === "none") {
+      // If no mode is applied, allow simple rotation animation
+      isAnimating = !isAnimating;
+    }
+    updatePlayPauseButton();
+  }
+
   // Event listeners
   // Text input  attention
   textInput.addEventListener("input", function (e) {
     customText = e.target.value || "L";
-    makeL();
+    makeLetter();
   });
 
   // Extrusion depth slider
@@ -644,13 +471,15 @@ function setupUIControls() {
   colorPicker1.addEventListener("input", function (e) {
     primaryColor = hexToRgb(e.target.value);
     presetSelect.value = "custom";
-    makeL();
+    syncColorCircles();
+    makeLetter();
   });
 
   colorPicker2.addEventListener("input", function (e) {
     secondaryColor = hexToRgb(e.target.value);
     presetSelect.value = "custom";
-    makeL();
+    syncColorCircles();
+    makeLetter();
   });
 
   presetSelect.addEventListener("change", function (e) {
@@ -660,17 +489,7 @@ function setupUIControls() {
   });
 
   playPauseButton.addEventListener("click", function () {
-    if (appliedMode === "sequence") {
-      isSequenceRunning = !isSequenceRunning;
-      isAnimating = false;
-    } else if (appliedMode === "manual") {
-      // doesn't play
-    } else if (appliedMode === "left_rotate") {
-      isAnimating = !isAnimating; // Toggle spin for Left Rotate
-    }
-    // If appliedMode is "none", clicking start does nothing (or you can make it alert user)
-
-    updatePlayPauseButton();
+    togglePlayPause();
   });
 
   rotationXSlider.addEventListener("input", function (e) {
@@ -685,117 +504,453 @@ function setupUIControls() {
     manualZ = e.target.value;
   });
 
-  if (applyRotationButton) {
-    if (applyLightingButton) {
-      applyLightingButton.addEventListener("click", function () {
-        var selectedMode = lightingModeSelect
-          ? lightingModeSelect.value
-          : "neutral";
-        lightingMode = selectedMode;
-        switch (selectedMode) {
-          case "soft_glow":
-            lightingFactor = 1.2;
-            break;
-          case "dramatic":
-            lightingFactor = 0.8;
-            break;
-          default:
-            lightingFactor = 1.0;
-            break;
-        }
-        makeL();
-      });
-    }
-    if (applyRotationButton) {
-      applyRotationButton.addEventListener("click", function () {
-        var selected = rotationSelect.value;
-        isSequenceRunning = false; // Stop any running sequence
-        isAnimating = false; // Stop the auto-spin
-
-        if (selected === "manual_360") {
-          appliedMode = "manual";
-          isManualRotation = true;
-        } else if (selected === "left_rotate") {
-          appliedMode = "left_rotate";
-          isManualRotation = false;
-        } else {
-          appliedMode = "sequence";
-          isManualRotation = false;
-
-          if (selected === "tv_ident_seq") {
-            sequenceKeyframes = tvIdentKeyframes;
-          } else {
-            sequenceKeyframes = assignmentKeyframes;
-          }
-
-          startSequence();
-          isSequenceRunning = false; // Pause immediately
-        }
-
-        updatePlayPauseButton();
-      });
-    }
-
-    // Initialize button state
-    updatePlayPauseButton();
-
-    resetButton.addEventListener("click", function () {
-      animationAngle = 0;
-      animationSpeed = 1.0;
-      extrusionDepth = 0.1;
-      primaryColor = [1.0, 0.0, 0.0, 1.0];
-      secondaryColor = [0.0, 1.0, 0.0, 1.0];
-      customText = "L";
-
-      // Reset Modes
-      stopSequence();
-      appliedMode = "none"; // Go back to default/static state
-      isManualRotation = false;
-      isAnimating = false;
-
-      lightingMode = "neutral";
-      lightingFactor = 1.0;
-      manualX = 0;
-      manualY = 0;
-      manualZ = 0;
-
-      // Reset text input
-      textInput.value = customText; // attention
-
-      // Reset sliders
-      extrusionSlider.value = extrusionDepth;
-      speedSlider.value = animationSpeed;
-      rotationXSlider.value = 0;
-      rotationYSlider.value = 0;
-      rotationZSlider.value = 0;
-
-      updateExtrusionDepth(extrusionDepth);
-      updateSpeed(animationSpeed);
-      colorPicker1.value = "#ff0000";
-      colorPicker2.value = "#00ff00";
-      presetSelect.value = "custom";
-      if (typeof window.refreshColorCircles === "function") {
-        window.refreshColorCircles();
-      }
-
-      makeL();
-    });
-
-    // Keyboard events
-    window.addEventListener("keydown", function (e) {
-      switch (e.code) {
-        case "Space":
-          e.preventDefault();
-          isAnimating = !isAnimating;
-          updatePlayPauseButton();
+  if (applyLightingButton) {
+    applyLightingButton.addEventListener("click", function () {
+      var selectedMode = lightingModeSelect
+        ? lightingModeSelect.value
+        : "neutral";
+      lightingMode = selectedMode;
+      switch (selectedMode) {
+        case "soft_glow":
+          lightingFactor = 1.2;
           break;
-        case "KeyR":
-          resetButton.click();
+        case "dramatic":
+          lightingFactor = 0.8;
+          break;
+        default:
+          lightingFactor = 1.0;
           break;
       }
     });
-
-    // Window resize event (maintain aspect ratio)
-    window.addEventListener("resize", resizeCanvasMaintainingAspect);
   }
+
+  if (applyRotationButton) {
+    applyRotationButton.addEventListener("click", function () {
+      var selected = rotationSelect.value;
+      isSequenceRunning = false; // Stop any running sequence
+      isAnimating = false; // Stop the auto-spin
+
+      if (selected === "manual_360") {
+        appliedMode = "manual";
+        isManualRotation = true;
+      } else if (selected === "left_rotate") {
+        appliedMode = "left_rotate";
+        isManualRotation = false;
+      } else {
+        appliedMode = "sequence";
+        isManualRotation = false;
+        if (selected === "tv_ident_seq") {
+          sequenceKeyframes = tvIdentKeyframes;
+        } else {
+          sequenceKeyframes = assignmentKeyframes;
+        }
+        startSequence();
+        isSequenceRunning = false; // Pause immediately
+      }
+      updatePlayPauseButton();
+    });
+  }
+
+  // Initialize button state
+  updatePlayPauseButton();
+  resetButton.addEventListener("click", function () {
+    animationAngle = 0;
+    animationSpeed = 1.0;
+    extrusionDepth = 0.1;
+    primaryColor = [1.0, 0.0, 0.0, 1.0];
+    secondaryColor = [0.0, 1.0, 0.0, 1.0];
+    customText = "L";
+
+    // Reset Modes
+    stopSequence();
+    appliedMode = "none"; // Go back to default/static state
+    isManualRotation = false;
+    isAnimating = false;
+    lightingMode = "neutral";
+    lightingFactor = 1.0;
+    manualX = 0;
+    manualY = 0;
+    manualZ = 0;
+
+    // Reset text input
+    textInput.value = customText; // attention
+
+    // Reset sliders
+    extrusionSlider.value = extrusionDepth;
+    speedSlider.value = animationSpeed;
+    rotationXSlider.value = 0;
+    rotationYSlider.value = 0;
+    rotationZSlider.value = 0;
+    updateExtrusionDepth(extrusionDepth);
+    updateSpeed(animationSpeed);
+    colorPicker1.value = "#ff0000";
+    colorPicker2.value = "#00ff00";
+    presetSelect.value = "custom";
+    syncColorCircles();
+    if (lightingModeSelect) {
+      lightingModeSelect.value = "neutral";
+    }
+    updatePlayPauseButton();
+    makeLetter();
+  });
+
+  // Keyboard events
+  window.addEventListener("keydown", function (e) {
+    switch (e.code) {
+      case "Space":
+        e.preventDefault();
+        togglePlayPause();
+        break;
+      case "KeyR":
+        e.preventDefault();
+        resetButton.click();
+        break;
+    }
+  });
+
+  // Window resize event (maintain aspect ratio)
+  window.addEventListener("resize", resizeCanvasMaintainingAspect);
+
+  (function () {
+    const bindings = [
+      {
+        inputId: "color_picker",
+        circleSelector: '[data-circle="primary"]',
+      },
+      {
+        inputId: "color_picker_2",
+        circleSelector: '[data-circle="secondary"]',
+      },
+    ];
+
+    function syncCircle(inputId, circleSelector) {
+      const input = document.getElementById(inputId);
+      const circle = document.querySelector(circleSelector);
+      if (input && circle) {
+        circle.style.background = input.value;
+      }
+    }
+
+    window.refreshColorCircles = function () {
+      bindings.forEach(({ inputId, circleSelector }) =>
+        syncCircle(inputId, circleSelector)
+      );
+    };
+
+    bindings.forEach(({ inputId, circleSelector }) => {
+      syncCircle(inputId, circleSelector);
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.addEventListener("input", () =>
+          syncCircle(inputId, circleSelector)
+        );
+      }
+    });
+  })();
+}
+
+//----------------new 3D letter generation code----------------//
+function makeLetter() {
+  object = []; // reset all objects
+
+  var text = customText.toUpperCase();
+  var letterSpacing = 1.0; // spacing between letters
+  var totalWidth = text.length * letterSpacing;
+  var startXOffset = -totalWidth / 2 + letterSpacing / 2;
+
+  for (let i = 0; i < text.length; i++) {
+    let letter = text.charAt(i);
+    let letterObj;
+
+    // Create the letter object
+    switch (letter) {
+      case "L":
+        letterObj = makeL();
+        break;
+      case "E":
+        letterObj = makeE();
+        break;
+      case "V":
+        letterObj = makeV();
+        break;
+      case "O":
+        letterObj = makeO();
+        break;
+      default:
+        letterObj = makeL();
+        break;
+    }
+
+    // Apply X-offset as a per-object model matrix
+    letterObj.modelMatrix = translate(startXOffset + i * letterSpacing, 0, 0);
+
+    object.push(letterObj);
+  }
+}
+
+function makeL() {
+  let L2D = [
+    [vec2(-0.4, -0.5), vec2(-0.2, -0.5), vec2(-0.2, 0.5), vec2(-0.4, 0.5)],
+    [vec2(-0.4, -0.5), vec2(0.2, -0.5), vec2(0.2, -0.25), vec2(-0.4, -0.25)],
+  ];
+
+  return extrudeIndexed(L2D, extrusionDepth, primaryColor, secondaryColor);
+}
+
+function makeE() {
+  let E2D = [
+    [vec2(-0.4, -0.5), vec2(-0.2, -0.5), vec2(-0.2, 0.5), vec2(-0.4, 0.5)],
+    [vec2(-0.4, 0.3), vec2(0.15, 0.3), vec2(0.15, 0.5), vec2(-0.4, 0.5)],
+    [vec2(-0.4, -0.1), vec2(0.15, -0.1), vec2(0.15, 0.1), vec2(-0.4, 0.1)],
+    [vec2(-0.4, -0.5), vec2(0.2, -0.5), vec2(0.2, -0.3), vec2(-0.4, -0.3)],
+  ];
+
+  return extrudeIndexed(E2D, extrusionDepth, primaryColor, secondaryColor);
+}
+
+function makeV() {
+  let V2D = [
+    [vec2(-0.4, 0.5), vec2(-0.2, 0.5), vec2(0.0, -0.5), vec2(-0.25, -0.5)],
+    [vec2(0.2, 0.5), vec2(0.4, 0.5), vec2(0.25, -0.5), vec2(0.0, -0.5)],
+    [
+      vec2(-0.25, -0.25),
+      vec2(0.25, -0.25),
+      vec2(0.25, -0.5),
+      vec2(-0.25, -0.5),
+    ],
+  ];
+
+  return extrudeIndexed(V2D, extrusionDepth, primaryColor, secondaryColor);
+}
+
+function makeO() {
+  let loops = generateOOutline(64, 0.5, 0.25);
+  return extrudeIndexed(loops, extrusionDepth, primaryColor, secondaryColor);
+}
+
+function generateOOutline(segments, outerRadius, innerRadius) {
+  let loops = [];
+  let outer = [],
+    inner = [];
+  for (let i = 0; i < segments; ++i) {
+    let t = (2 * Math.PI * i) / segments;
+    outer.push(vec2(Math.cos(t) * outerRadius, Math.sin(t) * outerRadius));
+    inner.push(vec2(Math.cos(t) * innerRadius, Math.sin(t) * innerRadius));
+  }
+  inner.reverse(); // CW winding for hole
+  loops.push(outer);
+  loops.push(inner);
+  return loops;
+}
+
+function extrudeIndexed(loops2D, depth, colorFront, colorBack) {
+  let positions = [],
+    normals = [],
+    colors = [],
+    indices = [];
+  let index = 0;
+
+  function addVertex(p, n, c) {
+    positions.push(p[0], p[1], p[2], 1.0);
+    normals.push(n[0], n[1], n[2]);
+    colors.push(c[0], c[1], c[2], c[3]);
+    return index++;
+  }
+
+  // FRONT & BACK faces
+  for (let k = 0; k < loops2D.length; k++) {
+    let loop = loops2D[k];
+
+    for (let i = 1; i < loop.length - 1; i++) {
+      let v0f = addVertex(
+        [loop[0][0], loop[0][1], depth],
+        [0, 0, 1],
+        colorFront
+      );
+      let v1f = addVertex(
+        [loop[i][0], loop[i][1], depth],
+        [0, 0, 1],
+        colorFront
+      );
+      let v2f = addVertex(
+        [loop[i + 1][0], loop[i + 1][1], depth],
+        [0, 0, 1],
+        colorFront
+      );
+      indices.push(v0f, v1f, v2f);
+
+      let v0b = addVertex(
+        [loop[0][0], loop[0][1], -depth],
+        [0, 0, -1],
+        colorBack
+      );
+      let v1b = addVertex(
+        [loop[i + 1][0], loop[i + 1][1], -depth],
+        [0, 0, -1],
+        colorBack
+      );
+      let v2b = addVertex(
+        [loop[i][0], loop[i][1], -depth],
+        [0, 0, -1],
+        colorBack
+      );
+      indices.push(v0b, v1b, v2b);
+    }
+  }
+
+  // SIDE walls
+  for (let k = 0; k < loops2D.length; k++) {
+    let loop = loops2D[k];
+    for (let i = 0; i < loop.length; i++) {
+      let j = (i + 1) % loop.length;
+      let dx = loop[j][0] - loop[i][0];
+      let dy = loop[j][1] - loop[i][1];
+      let len = Math.sqrt(dx * dx + dy * dy);
+      let nx = dy / len,
+        ny = -dx / len;
+      let sideNormal = [nx, ny, 0];
+
+      let colorSide = [
+        (primaryColor[0] + secondaryColor[0]) / 2,
+        (primaryColor[1] + secondaryColor[1]) / 2,
+        (primaryColor[2] + secondaryColor[2]) / 2,
+        (primaryColor[3] + secondaryColor[3]) / 2, // optional, usually 1
+      ];
+
+      let v0 = addVertex(
+        [loop[i][0], loop[i][1], depth],
+        sideNormal,
+        colorSide
+      );
+      let v1 = addVertex(
+        [loop[j][0], loop[j][1], depth],
+        sideNormal,
+        colorSide
+      );
+      let v2 = addVertex(
+        [loop[j][0], loop[j][1], -depth],
+        sideNormal,
+        colorSide
+      );
+      let v3 = addVertex(
+        [loop[i][0], loop[i][1], -depth],
+        sideNormal,
+        colorSide
+      );
+
+      indices.push(v0, v1, v2, v0, v2, v3);
+    }
+  }
+
+  let data = { numIndices: indices.length };
+  data.vertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, data.vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  data.normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, data.normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+  data.colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, data.colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+  data.indexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
+  gl.bufferData(
+    gl.ELEMENT_ARRAY_BUFFER,
+    new Uint16Array(indices),
+    gl.STATIC_DRAW
+  );
+
+  return data;
+}
+
+function render(now) {
+  if (typeof now === "undefined") now = performance.now();
+  let deltaSeconds = lastFrameTime ? (now - lastFrameTime) / 1000 : 0;
+  lastFrameTime = now;
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Base camera
+  modelViewMatrix = lookAt(vec3(0, 0, 3), vec3(0, 0, 0), vec3(0, 1, 0));
+
+  let baseModelMatrix = mat4();
+
+  // Apply animation mode
+  if (isSequenceRunning) {
+    updateSequence(deltaSeconds);
+    baseModelMatrix = buildModelMatrix(currentSequenceTransform);
+  } else if (
+    appliedMode === "left_rotate" ||
+    (appliedMode === "none" && isAnimating)
+  ) {
+    if (isAnimating) {
+      animationAngle += 50 * deltaSeconds * animationSpeed;
+      if (animationAngle >= 360) animationAngle -= 360;
+    }
+    baseModelMatrix = rotate(animationAngle, 0, 1, 0);
+  } else if (appliedMode === "manual") {
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualX, 1, 0, 0));
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualY, 0, 1, 0));
+    baseModelMatrix = mult(baseModelMatrix, rotate(manualZ, 0, 0, 1));
+  }
+
+  // apply text scale
+  var scaleMatrix = mat4(
+    textScale,
+    0,
+    0,
+    0,
+    0,
+    textScale,
+    0,
+    0,
+    0,
+    0,
+    textScale,
+    0,
+    0,
+    0,
+    0,
+    1
+  );
+  baseModelMatrix = mult(baseModelMatrix, scaleMatrix);
+
+  modelViewMatrix = mult(modelViewMatrix, baseModelMatrix);
+
+  gl.uniform1f(uLightingFactorLoc, lightingFactor);
+
+  // Draw all letters
+  for (let i = 0; i < object.length; i++) {
+    let obj = object[i];
+
+    let finalMatrix = mult(modelViewMatrix, obj.modelMatrix);
+
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(finalMatrix));
+    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
+    gl.uniformMatrix3fv(
+      normalMatrixLoc,
+      false,
+      flatten(normalMatrix(finalMatrix))
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalBuffer);
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormal);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.colorBuffer);
+    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vColor);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, obj.numIndices, gl.UNSIGNED_SHORT, 0);
+  }
+
+  requestAnimationFrame(render);
 }
