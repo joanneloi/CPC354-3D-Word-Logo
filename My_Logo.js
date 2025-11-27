@@ -526,7 +526,7 @@ function setupUIControls() {
     textScale = 0.7;
     primaryColor = [1.0, 0.0, 0.0, 1.0];
     secondaryColor = [0.0, 1.0, 0.0, 1.0];
-    customText = "L";
+    customText = "LOVE";
 
     // Reset Modes
     stopSequence();
