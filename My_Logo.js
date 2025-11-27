@@ -28,7 +28,7 @@ var manualTransY = 0;
 var manualTransZ = 0;
 var primaryColor = [1.0, 0.0, 0.0, 1.0];
 var secondaryColor = [0.0, 1.0, 0.0, 1.0];
-var customText = "Love"; // need change later
+var customText = "LOVE"; // need change later
 var targetAspectRatio = 16 / 9;
 var lightingMode = "neutral";
 var lightingFactor = 1.0;
@@ -286,12 +286,49 @@ function setupUIControls() {
   var transXSlider = document.getElementById("trans_x");
   var transYSlider = document.getElementById("trans_y");
   var transZSlider = document.getElementById("trans_z");
+  var textInputMessage = document.getElementById("text_input_message");
 
   function syncColorCircles() {
     if (typeof window.refreshColorCircles === "function") {
       window.refreshColorCircles();
     }
   }
+
+  function setValidationMessage(message) {
+    if (!textInputMessage) {
+      return;
+    }
+    if (message) {
+      textInputMessage.textContent = message;
+      textInputMessage.style.display = "block";
+    } else {
+      textInputMessage.textContent = "";
+      textInputMessage.style.display = "none";
+    }
+  }
+
+  function handleTextInputChange(rawValue) {
+    var normalized = (rawValue || "").toUpperCase();
+    var isValid = normalized.length > 0 && /^[LOVE]+$/.test(normalized);
+
+    if (!isValid) {
+      customText = "";
+      setValidationMessage(
+        "Please enter character valid character L, O, V, E"
+      );
+      makeLetter();
+      return;
+    }
+
+    customText = normalized;
+    if (textInput) {
+      textInput.value = normalized;
+    }
+    setValidationMessage("");
+    makeLetter();
+  }
+
+  setValidationMessage("");
 
   // update extrusion depth,enforce limits
   function updateExtrusionDepth(newDepth) {
@@ -405,8 +442,7 @@ function setupUIControls() {
   // Event listeners
   // Text input  attention
   textInput.addEventListener("input", function (e) {
-    customText = e.target.value || "L";
-    makeLetter();
+    handleTextInputChange(e.target.value);
   });
 
   // Extrusion depth slider
@@ -549,6 +585,7 @@ function setupUIControls() {
 
     // Reset text input
     textInput.value = customText; // attention
+    setValidationMessage("");
 
     // Reset sliders
     extrusionSlider.value = extrusionDepth;
@@ -657,8 +694,12 @@ function makeLetter() {
         letterObj = makeO();
         break;
       default:
-        letterObj = makeL();
+        letterObj = null;
         break;
+    }
+
+    if (!letterObj) {
+      continue;
     }
 
     // Apply X-offset as a per-object model matrix
