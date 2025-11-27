@@ -33,55 +33,55 @@ var lightingMode = "neutral";
 var lightingFactor = 1.0;
 var textScale = 0.7; // Scale factor to make text smaller
 
-// 1. Assignment Sequence TV Indent
+// TV Indent
 var assignmentKeyframes = [
   {
-    // Step 1: Start Center (Hold briefly)
+    // 1. start at center
     name: "start",
     duration: 0.5,
     start: createTransform(0, [0, 0, 0], 1.0),
     end: createTransform(0, [0, 0, 0], 1.0),
   },
   {
-    // Step 2: Rotate Right 180 (0 to -180 is Clockwise/Right)
+    // 2. totate right 180
     name: "right_180",
     duration: 1.5,
     start: createTransform(0, [0, 0, 0], 1.0),
     end: createTransform(-180, [0, 0, 0], 1.0),
   },
   {
-    // Step 3: Rotate Back to Original
+    // 3. rotate back to original
     name: "back_from_right",
     duration: 1.5,
     start: createTransform(-180, [0, 0, 0], 1.0),
     end: createTransform(0, [0, 0, 0], 1.0),
   },
   {
-    // Step 4: Rotate Left 180 (0 to 180 is Counter-Clockwise/Left)
+    // 4. rotate left 180
     name: "left_180",
     duration: 1.5,
     start: createTransform(0, [0, 0, 0], 1.0),
     end: createTransform(180, [0, 0, 0], 1.0),
   },
   {
-    // Step 5: Rotate Back to Original
+    // 5. rotate back to original
     name: "back_from_left",
     duration: 1.5,
     start: createTransform(180, [0, 0, 0], 1.0),
     end: createTransform(0, [0, 0, 0], 1.0),
   },
   {
-    // Step 6: Gradually Enlarge (Scale 1.0 -> 1.3)
+    // 6. enlarge
     name: "enlarge",
     duration: 2.0,
     start: createTransform(0, [0, 0, 0], 1.0),
     end: createTransform(0, [0, 0, 0], 1.3),
   },
   {
-    // Step 7: Move About (Looping)
+    // 7. move about
     name: "hover_loop",
-    duration: 3.0, // Length of one bob/wobble cycle
-    loop: true, // Custom flag to make this step repeat forever
+    duration: 3.0, // length of one cycle
+    loop: true, //  repeat forever
     custom: true,
     compute: function (t) {
       // Gentle floating up/down and slight wobble rotation
@@ -92,7 +92,6 @@ var assignmentKeyframes = [
   },
 ];
 
-// 2. Set the default active sequence
 var sequenceKeyframes = assignmentKeyframes;
 var isSequenceRunning = false;
 var sequenceIndex = 0;
@@ -391,7 +390,7 @@ function setupUIControls() {
       appliedMode === "left_rotate" ||
       appliedMode === "right_rotate"
     ) {
-      isAnimating = !isAnimating; // Toggle spin for Left OR Right Rotate
+      isAnimating = !isAnimating;
     } else if (appliedMode === "manual") {
       isAnimating = !isAnimating;
     }
@@ -421,7 +420,6 @@ function setupUIControls() {
     scaleSlider.addEventListener("input", function (e) {
       textScale = parseFloat(e.target.value);
       scaleValueDisplay.textContent = textScale.toFixed(1);
-      // We don't need to call makeLetter() because render() picks up the new size automatically
     });
   }
 
@@ -532,7 +530,7 @@ function setupUIControls() {
 
     // Reset Modes
     stopSequence();
-    appliedMode = "none"; // Go back to default/static state
+    appliedMode = "none";
     isManualRotation = false;
     isAnimating = false;
     lightingMode = "neutral";
@@ -861,13 +859,13 @@ function render(now) {
     baseModelMatrix = buildModelMatrix(currentSequenceTransform);
   } else if (appliedMode === "left_rotate" || appliedMode === "right_rotate") {
     if (isAnimating) {
-      // 1. Determine direction (1 for Left, -1 for Right)
+      // 1. determine direction (1 for Left, -1 for Right)
       var direction = appliedMode === "right_rotate" ? -1 : 1;
 
-      // 2. Apply rotation with direction
+      // 2. apply rotation with direction
       animationAngle += direction * 50 * deltaSeconds * animationSpeed;
 
-      // 3. Handle wrap-around for both directions
+      // 3. handle both directions
       if (animationAngle >= 360) animationAngle -= 360;
       if (animationAngle <= 0) animationAngle += 360;
     }
