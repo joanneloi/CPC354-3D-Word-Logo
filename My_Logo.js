@@ -733,12 +733,7 @@ function makeV() {
   let V2D = [
     [vec2(-0.4, 0.5), vec2(-0.2, 0.5), vec2(0.0, -0.5), vec2(-0.25, -0.5)],
     [vec2(0.2, 0.5), vec2(0.4, 0.5), vec2(0.25, -0.5), vec2(0.0, -0.5)],
-    [
-      vec2(-0.25, -0.25),
-      vec2(0.25, -0.25),
-      vec2(0.25, -0.5),
-      vec2(-0.25, -0.5),
-    ],
+    [vec2(-0.25, -0.25), vec2(0.25, -0.25), vec2(0.25, -0.5), vec2(-0.25, -0.5)],
   ];
 
   return extrudeIndexed(V2D, extrusionDepth, primaryColor, secondaryColor);
@@ -878,11 +873,7 @@ function extrudeIndexed(loops2D, depth, colorFront, colorBack) {
 
   data.indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, data.indexBuffer);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(indices),
-    gl.STATIC_DRAW
-  );
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
   return data;
 }
@@ -895,7 +886,10 @@ function render(now) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   // Base camera
-  modelViewMatrix = lookAt(vec3(0, 0, 3), vec3(0, 0, 0), vec3(0, 1, 0));
+  modelViewMatrix = lookAt(
+    vec3(0, 0, 3), 
+    vec3(0, 0, 0), 
+    vec3(0, 1, 0));
 
   let baseModelMatrix = mat4();
 
@@ -929,23 +923,11 @@ function render(now) {
 
   // apply text scale
   var scaleMatrix = mat4(
-    textScale,
-    0,
-    0,
-    0,
-    0,
-    textScale,
-    0,
-    0,
-    0,
-    0,
-    textScale,
-    0,
-    0,
-    0,
-    0,
-    1
-  );
+    textScale, 0, 0, 0,
+    0, textScale, 0, 0,
+    0, 0, textScale, 0,
+    0, 0, 0, 1);
+
   baseModelMatrix = mult(baseModelMatrix, scaleMatrix);
 
   modelViewMatrix = mult(modelViewMatrix, baseModelMatrix);
@@ -960,11 +942,7 @@ function render(now) {
 
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(finalMatrix));
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
-    gl.uniformMatrix3fv(
-      normalMatrixLoc,
-      false,
-      flatten(normalMatrix(finalMatrix))
-    );
+    gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(normalMatrix(finalMatrix)));
 
     gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
