@@ -670,13 +670,12 @@ function setupUIControls() {
 function makeLetter() {
   object = []; // reset all objects
 
-  var text = customText.toUpperCase();
   var letterSpacing = 1.0; // spacing between letters
   var totalWidth = text.length * letterSpacing;
   var startXOffset = -totalWidth / 2 + letterSpacing / 2;
 
   for (let i = 0; i < text.length; i++) {
-    let letter = text.charAt(i);
+    let letter = customText.charAt(i);
     let letterObj;
 
     // Create the letter object
@@ -830,7 +829,7 @@ function extrudeIndexed(loops2D, depth, colorFront, colorBack) {
         (primaryColor[0] + secondaryColor[0]) / 2,
         (primaryColor[1] + secondaryColor[1]) / 2,
         (primaryColor[2] + secondaryColor[2]) / 2,
-        (primaryColor[3] + secondaryColor[3]) / 2, // optional, usually 1
+        (primaryColor[3] + secondaryColor[3]) / 2, 
       ];
 
       let v0 = addVertex(
