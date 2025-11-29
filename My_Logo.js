@@ -671,10 +671,10 @@ function makeLetter() {
   object = []; // reset all objects
 
   var letterSpacing = 1.0; // spacing between letters
-  var totalWidth = text.length * letterSpacing;
+  var totalWidth = customText.length * letterSpacing;
   var startXOffset = -totalWidth / 2 + letterSpacing / 2;
 
-  for (let i = 0; i < text.length; i++) {
+  for (let i = 0; i < customText.length; i++) {
     let letter = customText.charAt(i);
     let letterObj;
 
